@@ -32,8 +32,8 @@ async function freshContext(browser, viewport) {
 }
 
 /** Beantwoordt in de browser de kaart die nu vooraan staat: 'know' -> goed,
- *  'practice' -> fout. Werkt voor herken- en typ-modus (niet voor meerkeuze,
- *  die gebruikt de losse choice-optieknoppen). */
+ *  'practice' -> fout. Werkt voor herken-, typ- en reveal-modus (niet voor
+ *  meerkeuze, die gebruikt de losse choice-optieknoppen). */
 async function answerCurrent(page, correct) {
   const stage = await page.evaluate(() => activeStageForCurrentCard());
   if (stage === 'recognize') {
@@ -46,6 +46,10 @@ async function answerCurrent(page, correct) {
     await page.locator('#btn-type-check').click();
     await page.waitForTimeout(20);
     await page.locator('#btn-type-check').click();
+  } else if (stage === 'reveal') {
+    await page.locator('#btn-reveal-show').click();
+    await page.waitForTimeout(20);
+    await page.locator(correct ? '#btn-know' : '#btn-practice').click();
   } else if (stage === 'choice') {
     const correctText = await page.evaluate(() => {
       const entry = session.pending[0];
@@ -257,7 +261,14 @@ async function answerCurrent(page, correct) {
     await page.locator('#type-input').fill(card.it.toUpperCase() + '  ');
     await page.locator('#btn-type-check').click();
     await page.waitForTimeout(80);
-    ok(await page.locator('#type-feedback').innerText() === '✅ Corretto!', 'correct (ongeacht hoofdletters/spaties) geeft groen "Corretto!"');
+    const feedbackText = await page.locator('#type-feedback').innerText();
+    ok(feedbackText.startsWith('✅ Corretto!'), `correct (ongeacht hoofdletters/spaties) geeft groen "Corretto!" (gevonden: "${feedbackText}")`);
+    const expectedTypeHint = await page.evaluate((it) => `[${italianPhoneticHint(it)}]`, card.it);
+    ok(feedbackText.includes(expectedTypeHint), `feedback bij typen toont ook de fonetische hint (gevonden: "${feedbackText}")`);
+    const stillFocused = await page.evaluate(() => document.activeElement && document.activeElement.id === 'type-input');
+    ok(stillFocused, 'typveld blijft in focus na het controleren (geen toetsenbord-whiplash tussen kaarten)');
+    const stillEnabled = await page.locator('#type-input').isEnabled();
+    ok(stillEnabled, 'typveld wordt niet meer uitgeschakeld na het controleren');
     const boxAfter = await page.evaluate((it) => statusOf('lichaam', DECKS.find(d => d.id === 'lichaam').cards.find(c => c.it === it)).box, card.it);
     ok(boxAfter === 1, `box gaat naar 1 na correct getypt antwoord in 1x (gevonden: ${boxAfter})`);
     await page.locator('#btn-type-check').click();
@@ -266,15 +277,18 @@ async function answerCurrent(page, correct) {
     ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
     await ctx.close();
 
-    // noType-fallback: "Mi chiamo..." moet ondanks typ-modus als flip-kaart tonen,
-    // en mag zelfs na 2 missers gewoon naar meerkeuze gaan (geen typ-probleem daar).
+    // noType-fallback: "Mi chiamo..." moet ondanks typ-modus NIET als 3D-flip-kaart
+    // tonen (dat voelde als "gewoon flashcards" i.p.v. overhoren), maar als
+    // reveal-kaart in dezelfde stijl als typen — en mag na 2 missers gewoon
+    // naar meerkeuze gaan (geen typ-probleem daar).
     const { ctx: ctx2, page: page2, errors: errors2 } = await freshContext(browser);
     await page2.goto(BASE, { waitUntil: 'networkidle' });
     await page2.locator('.mode-btn[data-mode="type"]').click();
     await page2.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
     await page2.waitForTimeout(150);
 
-    let sawNoTypeRecognizeFallback = false;
+    let sawNoTypeRevealFallback = false;
+    let sawNoTypeAsFlipCard = false;
     let guard = 0;
     while (true) {
       guard++;
@@ -284,12 +298,14 @@ async function answerCurrent(page, correct) {
         noType: session.pending[0].card.noType === true,
         stage: activeStageForCurrentCard()
       }));
-      if (info.noType && info.stage === 'recognize') sawNoTypeRecognizeFallback = true;
+      if (info.noType && info.stage === 'reveal') sawNoTypeRevealFallback = true;
+      if (info.noType && info.stage === 'recognize') sawNoTypeAsFlipCard = true;
       const stillHasNoType = await page2.evaluate(() => session.pending.some(e => e.card.noType));
       if (!stillHasNoType) break;
       await answerCurrent(page2, true);
     }
-    ok(sawNoTypeRecognizeFallback, 'een noType-kaart is minstens één keer als flip-weergave getoond in typ-modus');
+    ok(sawNoTypeRevealFallback, 'een noType-kaart wordt in typ-modus getoond als reveal-kaart (niet als flip-kaart)');
+    ok(!sawNoTypeAsFlipCard, 'een noType-kaart verschijnt in typ-modus nooit meer als de 3D-flip-flashcard');
 
     ok(errors2.length === 0, `geen console/page errors tijdens noType-test (${JSON.stringify(errors2)})`);
     await ctx2.close();
@@ -515,6 +531,114 @@ async function answerCurrent(page, correct) {
       await page.waitForTimeout(40);
     }
     ok(errors.length === 0, `geen console/page errors tijdens doorloop van alle categorieën (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n13) Fonetiek zichtbaar op het moment dat je een antwoord geeft (niet alleen heel even op de voorkant)');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+
+    // Herken-modus: de achterkant van de flip-kaart herhaalt het Italiaanse
+    // woord + fonetiek, niet alleen de Nederlandse vertaling.
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    const frontIt = await page.evaluate(() => session.pending[0].card.it);
+    await page.locator('#flashcard').click();
+    await page.waitForTimeout(150);
+    const backSource = await page.locator('#card-back-source').innerText();
+    ok(backSource.includes(frontIt) && backSource.includes('['), `flip-kaart achterkant herhaalt het Italiaanse woord + fonetiek (gevonden: "${backSource}")`);
+    await page.locator('#btn-back-home').click();
+    await page.waitForTimeout(60);
+
+    // Reveal-stage (noType in typ-modus): fonetiek zichtbaar zodra je "Toon
+    // antwoord" klikt.
+    await page.locator('.mode-btn[data-mode="type"]').click();
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    let guard = 0, sawReveal = false, revealHint = '';
+    while (!sawReveal) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet bij reveal-fonetiek-test'); break; }
+      const stage = await page.evaluate(() => activeStageForCurrentCard());
+      if (stage === 'reveal') {
+        await page.locator('#btn-reveal-show').click();
+        await page.waitForTimeout(60);
+        revealHint = await page.locator('#reveal-phonetic').innerText();
+        sawReveal = true;
+        await page.locator('#btn-know').click();
+        break;
+      }
+      await answerCurrent(page, true);
+    }
+    ok(sawReveal, 'reveal-stage is bereikt in deze test');
+    ok(revealHint.startsWith('[') && revealHint.endsWith(']'), `fonetische hint zichtbaar op de reveal-kaart na "Toon antwoord" (gevonden: "${revealHint}")`);
+
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
+    await ctx.close();
+
+    // Meerkeuze in typ-modus-richting: de feedback bij het antwoord toont
+    // ook de fonetiek van het Italiaanse woord (niet alleen op de prompt).
+    const { ctx: ctx3, page: page3, errors: errors3 } = await freshContext(browser);
+    await page3.goto(BASE, { waitUntil: 'networkidle' });
+    await page3.locator('.mode-btn[data-mode="type"]').click();
+    await page3.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page3.waitForTimeout(150);
+    const target3 = await page3.evaluate(() => session.pending[0].card.it);
+
+    let guard3 = 0;
+    while (true) {
+      guard3++;
+      if (guard3 > 500) { ok(false, 'veiligheidslimiet bij choice-fonetiek-test'); break; }
+      const { isTarget, stage } = await page3.evaluate((t) => ({
+        isTarget: session.pending[0].card.it === t,
+        stage: activeStageForCurrentCard()
+      }), target3);
+      if (isTarget && stage === 'choice') break;
+      await answerCurrent(page3, isTarget ? false : true);
+    }
+    const handles3 = await page3.$$('.choice-option');
+    for (const h of handles3) {
+      const t = await h.textContent();
+      if (t !== target3) { await h.click(); break; } // bewust fout, feedback toont dan het juiste antwoord + fonetiek
+    }
+    await page3.waitForTimeout(60);
+    const choiceFeedback = await page3.locator('#choice-feedback').innerText();
+    ok(choiceFeedback.includes(target3) && choiceFeedback.includes('['), `meerkeuze-feedback (typ-richting) toont ook fonetiek bij het juiste antwoord (gevonden: "${choiceFeedback}")`);
+
+    ok(errors3.length === 0, `geen console/page errors (${JSON.stringify(errors3)})`);
+    await ctx3.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n14) Robuustheid: corrupte/onleesbare opslag crasht de app niet en verliest voortgang niet stilletjes');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('parla-italian-flashcards-v2', '{not valid json {{{');
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+
+    const afterReload = await page.evaluate(() => ({
+      total: totalWordCount(),
+      knownCount: totalKnownCount(),
+      backup: localStorage.getItem('parla-italian-flashcards-v2-corrupt-backup')
+    }));
+    ok(afterReload.total > 0, 'app laadt gewoon door na corrupte opslag (woordenlijst intact)');
+    ok(afterReload.knownCount === 0, 'corrupte voortgang wordt niet als "gekend" geteld, maar de app crasht niet en start leeg');
+    ok(afterReload.backup === '{not valid json {{{', 'de rauwe corrupte data wordt weggezet onder een backup-sleutel i.p.v. stilletjes weggegooid');
+
+    // De app moet daarna gewoon weer normaal opslaan.
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    await answerCurrent(page, true);
+    const savedAgain = await page.evaluate(() => JSON.parse(localStorage.getItem('parla-italian-flashcards-v2')).cardStatus);
+    ok(Object.keys(savedAgain).length > 0, 'na de corrupte-data-fallback wordt nieuwe voortgang weer gewoon opgeslagen');
+
+    ok(errors.length === 0, `geen console/page errors tijdens robuustheidstest (${JSON.stringify(errors)})`);
     await ctx.close();
   }
 
