@@ -148,6 +148,127 @@ main#app {
   max-width: 560px;
 }
 
+/* ---------- Hero: dagelijkse oefening ---------- */
+.hero-card {
+  all: unset;
+  cursor: pointer;
+  box-sizing: border-box;
+  margin-top: 24px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--coral);
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 18px 22px;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.hero-card:hover { transform: translate(-2px, -2px); box-shadow: var(--shadow-lg); }
+.hero-card:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); }
+.hero-card.is-empty {
+  background: var(--card-bg);
+  cursor: default;
+}
+.hero-card.is-empty:hover { transform: none; box-shadow: var(--shadow-md); }
+.hero-left { display: flex; align-items: center; gap: 14px; text-align: left; }
+.hero-emoji {
+  font-size: 30px;
+  width: 54px; height: 54px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+}
+.hero-title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--ink);
+}
+.hero-sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a2016;
+  max-width: 420px;
+  margin-top: 2px;
+}
+.hero-badge {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  background: #fff;
+  border: var(--border);
+  border-radius: var(--radius-pill);
+  min-width: 46px;
+  height: 46px;
+  padding: 0 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+/* ---------- Info card (waarom werkt dit) ---------- */
+.info-card {
+  margin-top: 14px;
+  background: var(--card-bg);
+  border: var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 4px 18px;
+}
+.info-card summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  list-style: none;
+}
+.info-card summary::-webkit-details-marker { display: none; }
+.info-card ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.info-card li {
+  font-size: 14px;
+  font-weight: 600;
+  color: #45454c;
+  line-height: 1.5;
+}
+.info-card li strong { color: var(--ink); }
+
+/* ---------- Mode toggle ---------- */
+.mode-toggle {
+  margin-top: 16px;
+  display: inline-flex;
+  gap: 8px;
+  background: var(--card-bg);
+  border: var(--border);
+  border-radius: var(--radius-pill);
+  padding: 5px;
+  box-shadow: var(--shadow-sm);
+}
+.mode-btn {
+  all: unset;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+}
+.mode-btn.active { background: var(--yellow); }
+
 /* ---------- Deck grid ---------- */
 .deck-grid {
   margin-top: 28px;
@@ -204,6 +325,40 @@ main#app {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 20px;
+}
+.core-tag {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  background: var(--yellow);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.deck-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.due-badge {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  background: var(--coral);
+  color: #fff;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.deck-card.core-card {
+  background: linear-gradient(135deg, #fff, var(--cream-deep));
 }
 .deck-progress-track {
   height: 12px;
@@ -284,8 +439,23 @@ main#app {
   transition: width .35s ease;
 }
 
+.box-badge-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+.box-badge {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--card-bg);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 5px 14px;
+}
+
 .card-stage {
-  margin-top: 34px;
+  margin-top: 22px;
   display: grid;
   place-items: center;
   perspective: 1400px;
@@ -360,6 +530,69 @@ main#app {
   font-weight: 700;
   color: #8a8a92;
 }
+
+.face-example {
+  font-size: 14px;
+  font-weight: 700;
+  color: #6b5a2a;
+  max-width: 90%;
+  line-height: 1.4;
+}
+
+/* ---------- Typ-modus ---------- */
+.type-card-stage {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.type-card {
+  position: relative;
+  width: min(560px, 100%);
+  min-height: 140px;
+  border: var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+.type-input-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+}
+.type-input {
+  width: min(420px, 100%);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  padding: 14px 18px;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.type-input:focus { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.type-input:disabled { opacity: .75; }
+.type-feedback {
+  min-height: 24px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  margin: 0;
+}
+.type-feedback.correct { color: #1a9c6f; }
+.type-feedback.incorrect { color: #e5484d; }
+.type-check-btn { min-width: 200px; justify-content: center; }
 
 .answer-buttons {
   margin-top: 30px;
@@ -485,4 +718,10 @@ main#app {
   .flashcard { height: 260px; }
   .study-top { grid-template-columns: auto 1fr auto; }
   .deck-heading { font-size: 16px; }
+  .hero-card { flex-direction: column; align-items: stretch; text-align: center; }
+  .hero-left { flex-direction: column; text-align: center; }
+  .hero-sub { max-width: none; }
+  .hero-badge { align-self: center; }
+  .mode-toggle { display: flex; width: 100%; }
+  .mode-btn { flex: 1; text-align: center; }
 }
