@@ -1,7 +1,7 @@
 // Parla! — kleine, dependency-vrije flashcards-app.
 // Alles draait client-side; voortgang wordt bewaard in localStorage.
 //
-// De studielogica is gebaseerd op drie principes uit taalverwervingsonderzoek:
+// De studielogica is gebaseerd op principes uit taalverwervingsonderzoek:
 //  1. Spaced repetition (Leitner-boxen): kaarten komen terug vlak voordat je ze
 //     zou vergeten, met steeds langere tussenpozen naarmate je ze beter kent
 //     (Ebbinghaus' vergeetcurve; Cepeda e.a. 2006 over het spacing-effect).
@@ -10,6 +10,11 @@
 //  3. Retrieval practice / het testeffect: actief het antwoord ophalen (of
 //     typen) beklijft beter dan herlezen (Karpicke & Roediger 2008) — vandaar
 //     de "actief typen"-modus naast de herken-modus.
+//  4. Mastery-based herhaling binnen een sessie: een fout beantwoord woord
+//     verlaat de sessie niet, maar komt een paar kaarten later terug — net
+//     zo lang tot het goed gaat. Vanaf de 3e poging op datzelfde woord
+//     schakelt de app naar meerkeuze, zodat je niet vast blijft zitten op
+//     een woord dat via vrij ophalen niet lukt (scaffolding).
 
 const STORAGE_KEY = 'parla-italian-flashcards-v2';
 const LEGACY_STORAGE_KEY = 'parla-italian-flashcards-v1';
@@ -22,6 +27,9 @@ const KNOWN_BOX_THRESHOLD = 3; // vanaf hier telt een kaart als "onder de knie"
 
 const DAILY_MAX_NEW = 10;
 const DAILY_MAX_TOTAL = 40;
+
+const CHOICE_OPTION_COUNT = 4;
+const CHOICE_AFTER_MISSES = 2; // vanaf de 3e poging (2 eerdere missers) -> meerkeuze
 
 /** Virtuele "mix"-deck die willekeurig door alle categorieën heen gaat. */
 const MIX_DECK = {
@@ -204,6 +212,19 @@ function checkTypedAnswer(card, input) {
   return acceptedVariants(card).some(v => normalizeAnswer(v) === norm);
 }
 
+/* ---------------- Meerkeuze: opties samenstellen ---------------- */
+
+/** Bouwt CHOICE_OPTION_COUNT opties (1 correct + afleiders), door elkaar
+ *  gehusseld. `field` is 'it' (Italiaans, bij typ-modus) of 'nl' (Nederlands,
+ *  bij herken-modus) — de richting volgt de actieve oefenmodus, zodat een
+ *  afgezwakte meerkeuzevraag hetzelfde test als waar hij vandaan komt. */
+function buildChoiceOptions(card, field) {
+  const correctText = card[field];
+  const pool = DECKS.flatMap(d => d.cards).filter(c => c !== card && c[field] !== correctText);
+  const distractors = shuffle(pool).slice(0, CHOICE_OPTION_COUNT - 1).map(c => c[field]);
+  return shuffle([correctText, ...distractors]);
+}
+
 /* ---------------- DOM refs ---------------- */
 
 const viewHome = document.getElementById('view-home');
@@ -227,9 +248,11 @@ const studyIndexEl = document.getElementById('study-index');
 const studyTotalEl = document.getElementById('study-total');
 const studyProgressEl = document.getElementById('study-progress');
 const boxBadgeEl = document.getElementById('box-badge');
+const kbdHintEl = document.getElementById('kbd-hint');
 
 const flashcardEl = document.getElementById('flashcard');
 const cardFrontWordEl = document.getElementById('card-front-word');
+const cardPhoneticEl = document.getElementById('card-phonetic');
 const cardBackWordEl = document.getElementById('card-back-word');
 const cardExampleEl = document.getElementById('card-example');
 
@@ -239,6 +262,14 @@ const typePromptEl = document.getElementById('type-prompt');
 const typeInputEl = document.getElementById('type-input');
 const typeFeedbackEl = document.getElementById('type-feedback');
 const btnTypeCheck = document.getElementById('btn-type-check');
+
+const choiceStage = document.getElementById('choice-stage');
+const choiceLabelEl = document.getElementById('choice-label');
+const choicePromptEl = document.getElementById('choice-prompt');
+const choicePhoneticEl = document.getElementById('choice-phonetic');
+const choiceOptionsEl = document.getElementById('choice-options');
+const choiceFeedbackEl = document.getElementById('choice-feedback');
+const btnChoiceNext = document.getElementById('btn-choice-next');
 
 const answerButtons = document.getElementById('answer-buttons');
 const btnPractice = document.getElementById('btn-practice');
@@ -257,9 +288,12 @@ const confettiLayer = document.getElementById('confetti-layer');
 
 /* ---------------- View switching ---------------- */
 
+const VIEW_NAMES = new Map([[viewHome, 'home'], [viewStudy, 'study'], [viewSummary, 'summary']]);
+
 function showView(view) {
   [viewHome, viewStudy, viewSummary].forEach(v => v.classList.add('hidden'));
   view.classList.remove('hidden');
+  document.body.dataset.view = VIEW_NAMES.get(view) || '';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -350,7 +384,15 @@ function startDailySession() {
 
 /* ---------------- Study session ---------------- */
 
-let session = null; // { deck, queue, index, sessionKnown, sessionPractice }
+// session = {
+//   deck,
+//   pending: [{ card, misses }, ...],   // volgende kaart staat vooraan
+//   totalDistinct,                      // aantal unieke woorden in de sessie
+//   masteredCount,                      // hoeveel daarvan al goed beantwoord zijn
+//   sessionKnown: [card, ...],          // in 1 keer goed
+//   sessionPractice: [card, ...]        // had een herhaling (en/of meerkeuze) nodig
+// }
+let session = null;
 
 function shuffle(arr) {
   const a = [...arr];
@@ -362,115 +404,193 @@ function shuffle(arr) {
 }
 
 function startSession(deck, cardsOverride) {
-  const cards = cardsOverride || shuffle(deck.cards);
-  session = { deck, queue: cards, index: 0, sessionKnown: [], sessionPractice: [] };
+  const cards = cardsOverride || deck.cards;
+  session = {
+    deck,
+    pending: shuffle(cards).map(card => ({ card, misses: 0 })),
+    totalDistinct: cards.length,
+    masteredCount: 0,
+    sessionKnown: [],
+    sessionPractice: []
+  };
   bumpStreak();
   studyEmojiEl.textContent = deck.emoji;
   studyDeckNameEl.textContent = deck.name;
-  studyTotalEl.textContent = cards.length;
   showView(viewStudy);
   renderCurrentCard();
 }
 
-function currentCard() {
-  return session.queue[session.index];
+function currentEntry() {
+  return session.pending[0];
 }
 
 /** In typ-modus vallen kaarten met meerdere/onvolledige vormen (noType) terug
- *  op de herken-weergave, zodat elke due kaart alsnog geoefend wordt. */
-function activeModeForCurrentCard() {
-  const card = currentCard();
-  return state.mode === 'type' && !card.noType ? 'type' : 'recognize';
+ *  op de herken-weergave. Vanaf CHOICE_AFTER_MISSES missers op hetzelfde
+ *  woord (binnen deze sessie) schakelt elke modus over naar meerkeuze. */
+function activeStageForCurrentCard() {
+  const entry = currentEntry();
+  if (!entry) return null;
+  if (entry.misses >= CHOICE_AFTER_MISSES) return 'choice';
+  return state.mode === 'type' && !entry.card.noType ? 'type' : 'recognize';
 }
 
-function renderCurrentCard() {
-  const card = currentCard();
-  const deckId = ownerDeckId(session.deck, card);
-  const box = statusOf(deckId, card).box;
-
-  flashcardEl.classList.remove('flipped');
-  cardFrontWordEl.textContent = card.it;
-  cardBackWordEl.textContent = card.nl;
-  cardExampleEl.textContent = card.ex ? `„${card.ex.it}” — ${card.ex.nl}` : '';
-  cardExampleEl.classList.toggle('hidden', !card.ex);
-
-  studyIndexEl.textContent = session.index + 1;
-  const pct = Math.round((session.index / session.queue.length) * 100);
-  studyProgressEl.style.width = `${pct}%`;
-  boxBadgeEl.textContent = box === 0 ? '🆕 Nieuw' : `📦 Box ${box}/${MAX_BOX}`;
-
-  const mode = activeModeForCurrentCard();
-  recognizeStage.classList.toggle('hidden', mode !== 'recognize');
-  typeStage.classList.toggle('hidden', mode !== 'type');
-  answerButtons.classList.toggle('hidden', mode !== 'recognize');
-
-  if (mode === 'type') {
-    typePromptEl.textContent = card.nl;
-    typeInputEl.value = '';
-    typeFeedbackEl.textContent = '';
-    typeFeedbackEl.className = 'type-feedback';
-    typeInputEl.disabled = false;
-    btnTypeCheck.textContent = 'Controleer';
-    btnTypeCheck.dataset.stage = 'check';
-    typeInputEl.focus();
+/** Verwerkt het resultaat van één poging op de huidige (voorste) kaart.
+ *  Bij goed: telt mee als "gekend" en verlaat de sessie definitief. Bij
+ *  fout: komt een paar kaarten verderop terug (spreiding, ook binnen de
+ *  sessie). De Leitner-box wordt maar één keer per kaart per sessie
+ *  bijgewerkt — pas zodra de kaart uiteindelijk goed gaat — en telt dan als
+ *  "correct" alleen als dat al in de allereerste poging lukte. Zo blijft de
+ *  spaced-repetition-voortgang eerlijk: een woord dat na wat oefenen alsnog
+ *  lukt, is voor de langere termijn nog niet "onder de knie". */
+function resolveAttempt(correct) {
+  const entry = session.pending[0];
+  if (correct) {
+    const firstTry = entry.misses === 0;
+    markStatus(ownerDeckId(session.deck, entry.card), entry.card, firstTry);
+    (firstTry ? session.sessionKnown : session.sessionPractice).push(entry.card);
+    session.masteredCount += 1;
+    session.pending.shift();
+  } else {
+    entry.misses += 1;
+    session.pending.shift();
+    const insertAt = Math.min(session.pending.length, 2 + Math.floor(Math.random() * 2));
+    session.pending.splice(insertAt, 0, entry);
   }
 }
 
+function advance() {
+  if (session.pending.length === 0) finishSession();
+  else renderCurrentCard();
+}
+
+function renderCurrentCard() {
+  const entry = currentEntry();
+  if (!entry) return;
+  const card = entry.card;
+  const deckId = ownerDeckId(session.deck, card);
+  const box = statusOf(deckId, card).box;
+
+  studyIndexEl.textContent = session.masteredCount;
+  studyTotalEl.textContent = session.totalDistinct;
+  const pct = Math.round((session.masteredCount / session.totalDistinct) * 100);
+  studyProgressEl.style.width = `${pct}%`;
+  boxBadgeEl.textContent = box === 0 ? '🆕 Nieuw' : `📦 Box ${box}/${MAX_BOX}`;
+
+  const stage = activeStageForCurrentCard();
+  recognizeStage.classList.toggle('hidden', stage !== 'recognize');
+  typeStage.classList.toggle('hidden', stage !== 'type');
+  choiceStage.classList.toggle('hidden', stage !== 'choice');
+  answerButtons.classList.toggle('hidden', stage !== 'recognize');
+
+  const hints = {
+    recognize: 'Spatie = draaien · ← nog oefenen · → ken ik',
+    type: 'Enter = controleren / volgende',
+    choice: 'Kies het juiste antwoord'
+  };
+  kbdHintEl.textContent = hints[stage] || '';
+
+  if (stage === 'recognize') renderRecognizeStage(card);
+  else if (stage === 'type') renderTypeStage(card);
+  else if (stage === 'choice') renderChoiceStage(card);
+}
+
+function renderRecognizeStage(card) {
+  flashcardEl.classList.remove('flipped');
+  cardFrontWordEl.textContent = card.it;
+  cardPhoneticEl.textContent = `[${italianPhoneticHint(card.it)}]`;
+  cardBackWordEl.textContent = card.nl;
+  cardExampleEl.textContent = card.ex ? `„${card.ex.it}” — ${card.ex.nl}` : '';
+  cardExampleEl.classList.toggle('hidden', !card.ex);
+}
+
+function renderTypeStage(card) {
+  typePromptEl.textContent = card.nl;
+  typeInputEl.value = '';
+  typeFeedbackEl.textContent = '';
+  typeFeedbackEl.className = 'type-feedback';
+  typeInputEl.disabled = false;
+  btnTypeCheck.textContent = 'Controleer';
+  btnTypeCheck.dataset.stage = 'check';
+  typeInputEl.focus();
+}
+
+/** Richting van de meerkeuzevraag volgt de actieve oefenmodus: in
+ *  herken-modus zie je het Italiaans en kies je de Nederlandse betekenis
+ *  (zoals bij flip-kaarten); in typ-modus zie je het Nederlands en kies je
+ *  het Italiaanse woord (zoals bij typen) — dezelfde testrichting, alleen
+ *  met scaffolding in plaats van vrij ophalen. */
+function renderChoiceStage(card) {
+  const promptIsItalian = state.mode !== 'type';
+  const field = promptIsItalian ? 'nl' : 'it';
+
+  choiceLabelEl.textContent = promptIsItalian ? 'Italiaans' : 'Nederlands';
+  choicePromptEl.textContent = promptIsItalian ? card.it : card.nl;
+  choicePhoneticEl.textContent = promptIsItalian ? `[${italianPhoneticHint(card.it)}]` : '';
+  choicePhoneticEl.classList.toggle('hidden', !promptIsItalian);
+
+  const options = buildChoiceOptions(card, field);
+  const correctText = card[field];
+  choiceOptionsEl.innerHTML = '';
+  options.forEach(optionText => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'choice-option';
+    btn.textContent = optionText;
+    btn.addEventListener('click', () => handleChoiceAnswer(optionText, correctText));
+    choiceOptionsEl.appendChild(btn);
+  });
+  choiceFeedbackEl.textContent = '';
+  choiceFeedbackEl.className = 'type-feedback';
+  btnChoiceNext.classList.add('hidden');
+}
+
+function handleChoiceAnswer(chosenText, correctText) {
+  const correct = chosenText === correctText;
+  [...choiceOptionsEl.children].forEach(btn => {
+    btn.disabled = true;
+    if (btn.textContent === correctText) btn.classList.add('correct');
+    else if (btn.textContent === chosenText) btn.classList.add('incorrect');
+  });
+  choiceFeedbackEl.textContent = correct ? '✅ Corretto!' : `❌ Het juiste antwoord was: ${correctText}`;
+  choiceFeedbackEl.className = 'type-feedback ' + (correct ? 'correct' : 'incorrect');
+
+  resolveAttempt(correct);
+  btnChoiceNext.textContent = session.pending.length === 0 ? 'Klaar' : 'Volgende →';
+  btnChoiceNext.classList.remove('hidden');
+}
+
 function flipCard() {
-  if (activeModeForCurrentCard() !== 'recognize') return;
+  if (activeStageForCurrentCard() !== 'recognize') return;
   flashcardEl.classList.toggle('flipped');
 }
 
 function answerCard(correct) {
-  const card = currentCard();
-  const deckId = ownerDeckId(session.deck, card);
-  markStatus(deckId, card, correct);
-
-  if (correct) session.sessionKnown.push(card);
-  else session.sessionPractice.push(card);
-
-  if (session.index + 1 < session.queue.length) {
-    session.index += 1;
-    renderCurrentCard();
-  } else {
-    finishSession();
-  }
+  resolveAttempt(correct);
+  advance();
 }
 
 function submitTypedAnswer() {
-  const card = currentCard();
   if (btnTypeCheck.dataset.stage === 'check') {
-    const correct = checkTypedAnswer(card, typeInputEl.value);
+    const entry = currentEntry();
+    const correct = checkTypedAnswer(entry.card, typeInputEl.value);
     typeInputEl.disabled = true;
-    if (correct) {
-      typeFeedbackEl.textContent = '✅ Corretto!';
-      typeFeedbackEl.className = 'type-feedback correct';
-    } else {
-      typeFeedbackEl.textContent = `❌ Was: ${card.it}`;
-      typeFeedbackEl.className = 'type-feedback incorrect';
-    }
-    markStatus(ownerDeckId(session.deck, card), card, correct);
-    if (correct) session.sessionKnown.push(card);
-    else session.sessionPractice.push(card);
+    typeFeedbackEl.textContent = correct ? '✅ Corretto!' : `❌ Was: ${entry.card.it}`;
+    typeFeedbackEl.className = 'type-feedback ' + (correct ? 'correct' : 'incorrect');
 
-    const isLast = session.index + 1 >= session.queue.length;
-    btnTypeCheck.textContent = isLast ? 'Klaar' : 'Volgende →';
+    resolveAttempt(correct);
+    btnTypeCheck.textContent = session.pending.length === 0 ? 'Klaar' : 'Volgende →';
     btnTypeCheck.dataset.stage = 'next';
   } else {
-    if (session.index + 1 < session.queue.length) {
-      session.index += 1;
-      renderCurrentCard();
-    } else {
-      finishSession();
-    }
+    advance();
   }
 }
 
 function finishSession() {
-  const total = session.queue.length;
+  const total = session.totalDistinct;
   const knownN = session.sessionKnown.length;
   const pct = total ? Math.round((knownN / total) * 100) : 0;
 
+  studyIndexEl.textContent = total;
   studyProgressEl.style.width = '100%';
 
   const messages = [
@@ -483,7 +603,7 @@ function finishSession() {
 
   summaryEmojiEl.textContent = emoji;
   summaryTitleEl.textContent = title;
-  summaryTextEl.textContent = `Je kende ${knownN} van de ${total} woordjes (${pct}%).`;
+  summaryTextEl.textContent = `Je kende ${knownN} van de ${total} woordjes meteen goed (${pct}%).`;
   summaryBarFillEl.style.width = '0%';
   requestAnimationFrame(() => { summaryBarFillEl.style.width = `${pct}%`; });
 
@@ -520,7 +640,7 @@ btnBackHome.addEventListener('click', () => { renderHome(); showView(viewHome); 
 btnToHome.addEventListener('click', () => { renderHome(); showView(viewHome); });
 
 btnRestartDeck.addEventListener('click', () => startSession(session.deck));
-btnRetryHard.addEventListener('click', () => startSession(session.deck, shuffle(session.sessionPractice)));
+btnRetryHard.addEventListener('click', () => startSession(session.deck, session.sessionPractice));
 
 btnDailySession.addEventListener('click', startDailySession);
 
@@ -528,6 +648,8 @@ btnTypeCheck.addEventListener('click', submitTypedAnswer);
 typeInputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); submitTypedAnswer(); }
 });
+
+btnChoiceNext.addEventListener('click', advance);
 
 modeButtons.forEach(btn => {
   btn.addEventListener('click', () => {
@@ -539,7 +661,7 @@ modeButtons.forEach(btn => {
 
 document.addEventListener('keydown', (e) => {
   if (viewStudy.classList.contains('hidden')) return;
-  if (activeModeForCurrentCard() === 'type') return; // typeveld handelt eigen toetsen af
+  if (activeStageForCurrentCard() !== 'recognize') return; // typen/meerkeuze handelen eigen toetsen af
   if (e.code === 'Space') { e.preventDefault(); flipCard(); }
   if (e.code === 'ArrowRight') answerCard(true);
   if (e.code === 'ArrowLeft') answerCard(false);
