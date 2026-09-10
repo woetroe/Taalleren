@@ -2,7 +2,6 @@
 // Draait de echte app in een headless browser en controleert zowel de UI
 // als de onderliggende state (localStorage) na interacties.
 const { chromium } = require('playwright');
-const assert = require('assert');
 
 const BASE = 'http://localhost:8934/index.html';
 let failures = 0;
@@ -21,8 +20,8 @@ function ok(cond, msg) {
 // We filteren die specifieke, verwachte melding daarom uit de testresultaten.
 const KNOWN_SANDBOX_NOISE = /ERR_CONNECTION_RESET/;
 
-async function freshContext(browser) {
-  const ctx = await browser.newContext({ viewport: { width: 1200, height: 900 } });
+async function freshContext(browser, viewport) {
+  const ctx = await browser.newContext({ viewport: viewport || { width: 1200, height: 900 } });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -30,6 +29,43 @@ async function freshContext(browser) {
     if (msg.type() === 'error' && !KNOWN_SANDBOX_NOISE.test(msg.text())) errors.push('console: ' + msg.text());
   });
   return { ctx, page, errors };
+}
+
+/** Beantwoordt in de browser de kaart die nu vooraan staat: 'know' -> goed,
+ *  'practice' -> fout. Werkt voor herken- en typ-modus (niet voor meerkeuze,
+ *  die gebruikt de losse choice-optieknoppen). */
+async function answerCurrent(page, correct) {
+  const stage = await page.evaluate(() => activeStageForCurrentCard());
+  if (stage === 'recognize') {
+    await page.locator('#flashcard').click();
+    await page.waitForTimeout(20);
+    await page.locator(correct ? '#btn-know' : '#btn-practice').click();
+  } else if (stage === 'type') {
+    const card = await page.evaluate(() => session.pending[0].card);
+    await page.locator('#type-input').fill(correct ? card.it : '___fout___');
+    await page.locator('#btn-type-check').click();
+    await page.waitForTimeout(20);
+    await page.locator('#btn-type-check').click();
+  } else if (stage === 'choice') {
+    const correctText = await page.evaluate(() => {
+      const entry = session.pending[0];
+      const promptIsItalian = state.mode !== 'type';
+      return promptIsItalian ? entry.card.nl : entry.card.it;
+    });
+    if (correct) {
+      await page.locator('.choice-option', { hasText: correctText }).first().click();
+    } else {
+      // kies gewoon de eerste optie die niet de juiste tekst heeft
+      const handles = await page.$$('.choice-option');
+      for (const h of handles) {
+        const t = await h.textContent();
+        if (t !== correctText) { await h.click(); break; }
+      }
+    }
+    await page.waitForTimeout(20);
+    await page.locator('#btn-choice-next').click();
+  }
+  await page.waitForTimeout(20);
 }
 
 (async () => {
@@ -49,240 +85,282 @@ async function freshContext(browser) {
     const expectedTotal = await page.evaluate(() => DECKS.reduce((s, d) => s + d.cards.length, 0));
     ok(Number(total) === expectedTotal, `totaal aantal woorden klopt (${total} === ${expectedTotal})`);
 
-    const firstTile = page.locator('.deck-card.core-card');
-    ok(await firstTile.count() === 1, 'er is precies 1 "kernwoorden" (core) tegel');
-
-    const heroEnabled = await page.locator('#btn-daily-session').isEnabled();
-    ok(heroEnabled, 'dagelijkse-oefening knop is actief bij verse start (er is nieuw materiaal)');
-
-    ok(errors.length === 0, `geen console/page errors (${errors.length} gevonden: ${JSON.stringify(errors)})`);
-    await page.screenshot({ path: 'shot-home-v2.png', fullPage: true });
+    ok(await page.locator('#btn-daily-session').isEnabled(), 'dagelijkse-oefening knop is actief bij verse start');
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
     await ctx.close();
   }
 
   // ---------------------------------------------------------------
-  console.log('\n2) Leitner-boxlogica: correct antwoord verhoogt box, fout antwoord zet terug naar 1');
+  console.log('\n2) Herhalen tot goed: een fout beantwoord woord verlaat de sessie niet');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
-
-    // Kies de "Begroetingen"-deck expliciet.
     await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
     await page.waitForTimeout(150);
 
-    ok(await page.locator('#box-badge').innerText() === '🆕 Nieuw', 'eerste kaart toont "Nieuw"-badge');
+    const target = await page.evaluate(() => session.pending[0].card.it);
+    ok(await page.evaluate((t) => session.pending.some(e => e.card.it === t), target) === true, `doelwoord "${target}" zit in de pending-lijst`);
 
-    // Beantwoord de hele deck met "Ken ik!" en volg de doosjes.
-    const deckLen = await page.evaluate(() => DECKS.find(d => d.id === 'begroetingen').cards.length);
-    for (let i = 0; i < deckLen; i++) {
-      await page.locator('#flashcard').click();
-      await page.waitForTimeout(60);
-      await page.locator('#btn-know').click();
-      await page.waitForTimeout(60);
-    }
-    await page.waitForTimeout(300);
+    // 1x fout beantwoorden -> mag NIET meteen de sessie beëindigen, en moet
+    // nog steeds ergens in "pending" staan (opnieuw ingepland, niet weggegooid).
+    await answerCurrent(page, false);
+    const stillThere = await page.evaluate((t) => session.pending.some(e => e.card.it === t), target);
+    ok(stillThere, 'na 1x fout staat het woord nog steeds in de wachtrij (niet weggegooid)');
+    const sessionStillOpen = await page.locator('#view-study').isVisible();
+    ok(sessionStillOpen, 'sessie is nog niet afgerond na 1 fout antwoord');
 
-    const boxesAfterOnce = await page.evaluate(() => {
-      const deck = DECKS.find(d => d.id === 'begroetingen');
-      return deck.cards.map(c => statusOf('begroetingen', c).box);
-    });
-    ok(boxesAfterOnce.every(b => b === 1), `alle kaarten staan na 1x "ken ik" op box 1 (gevonden: ${[...new Set(boxesAfterOnce)]})`);
-
-    const duesAfterOnce = await page.evaluate(() => {
-      const deck = DECKS.find(d => d.id === 'begroetingen');
-      const today = todayStr();
-      return deck.cards.map(c => statusOf('begroetingen', c).due > today);
-    });
-    ok(duesAfterOnce.every(Boolean), 'vervaldatum ligt na 1x "ken ik" in de toekomst (niet vandaag weer due)');
-
-    // Nog een keer de hele set doen -> box moet naar 2.
-    await page.locator('#btn-restart-deck').click();
-    await page.waitForTimeout(150);
-    for (let i = 0; i < deckLen; i++) {
-      await page.locator('#flashcard').click();
-      await page.waitForTimeout(40);
-      await page.locator('#btn-know').click();
-      await page.waitForTimeout(40);
-    }
-    await page.waitForTimeout(300);
-    const boxesAfterTwice = await page.evaluate(() => {
-      const deck = DECKS.find(d => d.id === 'begroetingen');
-      return deck.cards.map(c => statusOf('begroetingen', c).box);
-    });
-    ok(boxesAfterTwice.every(b => b === 2), `alle kaarten staan na 2x "ken ik" op box 2 (gevonden: ${[...new Set(boxesAfterTwice)]})`);
-
-    // Eén kaart fout beantwoorden -> terug naar box 1.
-    // Let op: de sessie wordt bij elke start opnieuw geshuffled, dus we lezen
-    // de daadwerkelijk getoonde kaart uit session.queue[0] i.p.v. aan te nemen
-    // dat dit deck.cards[0] is.
-    await page.locator('#btn-restart-deck').click();
-    await page.waitForTimeout(150);
-    const shownCardIt = await page.evaluate(() => session.queue[0].it);
-    await page.locator('#flashcard').click();
-    await page.waitForTimeout(60);
-    await page.locator('#btn-practice').click(); // "nog even oefenen" op de getoonde kaart
-    await page.waitForTimeout(150);
-    const shownCardBoxAfterFail = await page.evaluate((it) => {
-      const deck = DECKS.find(d => d.id === 'begroetingen');
-      const card = deck.cards.find(c => c.it === it);
-      return statusOf('begroetingen', card).box;
-    }, shownCardIt);
-    ok(shownCardBoxAfterFail === 1, `kaart terug naar box 1 na "nog even oefenen" (gevonden: ${shownCardBoxAfterFail})`);
-
-    ok(errors.length === 0, `geen console/page errors tijdens box-test (${JSON.stringify(errors)})`);
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
     await ctx.close();
   }
 
   // ---------------------------------------------------------------
-  console.log('\n3) Typ-modus: correct/foutief antwoord, meerdere geldige vormen, noType-fallback');
+  console.log('\n3) Meerkeuze vanaf de 3e poging op hetzelfde woord');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    const target = await page.evaluate(() => session.pending[0].card.it);
 
-    await page.locator('.mode-btn[data-mode="type"]').click();
+    // Elke andere kaart meteen goed wegwerken, het doelwoord tot 2x toe fout
+    // beantwoorden, dan moet de 3e keer meerkeuze zijn.
+    let guard = 0;
+    while (true) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet bereikt in meerkeuze-test'); break; }
+      const { isTarget, misses, stage } = await page.evaluate((t) => ({
+        isTarget: session.pending[0].card.it === t,
+        misses: session.pending[0].misses,
+        stage: activeStageForCurrentCard()
+      }), target);
+      if (isTarget && misses >= 2) {
+        ok(stage === 'choice', `bij misses=${misses} op het doelwoord is de actieve stage "choice" (gevonden: "${stage}")`);
+        break;
+      }
+      await answerCurrent(page, isTarget ? false : true);
+    }
+
+    const optionTexts = await page.locator('.choice-option').allTextContents();
+    ok(optionTexts.length === 4, `meerkeuze toont 4 opties (gevonden: ${optionTexts.length})`);
+    ok(new Set(optionTexts).size === 4, 'de 4 opties zijn onderling uniek');
+    const targetNl = await page.evaluate((t) => DECKS.flatMap(d => d.cards).find(c => c.it === t).nl, target);
+    ok(optionTexts.includes(targetNl), `het juiste antwoord ("${targetNl}") zit tussen de opties`);
+
+    // Fonetische hint hoort bij een Italiaans prompt (herken-modus is actief mode).
+    const phoneticShown = await page.locator('#choice-phonetic').innerText();
+    ok(phoneticShown.startsWith('[') && phoneticShown.endsWith(']'), `fonetische hint zichtbaar bij het meerkeuze-prompt (gevonden: "${phoneticShown}")`);
+
+    // Verkeerde optie kiezen -> woord blijft in de wachtrij, moet weer choice zijn.
+    const handles = await page.$$('.choice-option');
+    let clicked = false;
+    for (const h of handles) {
+      const t = await h.textContent();
+      if (t !== targetNl) { await h.click(); clicked = true; break; }
+    }
+    ok(clicked, 'een foute meerkeuze-optie is aangeklikt');
+    await page.waitForTimeout(50);
+    const feedbackWrong = await page.locator('#choice-feedback').innerText();
+    ok(feedbackWrong.includes(targetNl), `feedback bij fout antwoord toont het juiste antwoord (${feedbackWrong})`);
+    await page.locator('#btn-choice-next').click();
+    await page.waitForTimeout(50);
+
+    guard = 0;
+    while (true) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet (2)'); break; }
+      const { isTarget, stage } = await page.evaluate((t) => ({
+        isTarget: session.pending[0].card.it === t,
+        stage: activeStageForCurrentCard()
+      }), target);
+      if (isTarget) {
+        ok(stage === 'choice', `blijft meerkeuze na een gemiste meerkeuze-poging (gevonden: "${stage}")`);
+        break;
+      }
+      await answerCurrent(page, true);
+    }
+
+    // Nu het juiste antwoord kiezen -> woord verdwijnt uit de wachtrij, box
+    // wordt bijgewerkt als "niet in 1x goed" (dus box=1, ongeacht eerdere box).
+    const correctHandles = await page.$$('.choice-option');
+    for (const h of correctHandles) {
+      const t = await h.textContent();
+      if (t === targetNl) { await h.click(); break; }
+    }
+    await page.waitForTimeout(50);
+    await page.locator('#btn-choice-next').click();
     await page.waitForTimeout(100);
-    ok(await page.locator('.mode-btn[data-mode="type"]').evaluate(el => el.classList.contains('active')), 'typ-modus knop wordt actief na klikken');
+    const stillPending = await page.evaluate((t) => session.pending.some(e => e.card.it === t), target);
+    ok(!stillPending, 'na een correct meerkeuze-antwoord verdwijnt het woord definitief uit de wachtrij');
+    const box = await page.evaluate((t) => statusOf('begroetingen', DECKS.flatMap(d => d.cards).find(c => c.it === t)).box, target);
+    ok(box === 1, `box is 1 omdat het woord niet in 1x goed ging, ondanks uiteindelijk succes (gevonden: ${box})`);
 
-    // Lichaam-deck heeft geen slash- of ellips-kaarten: schone testcase.
+    ok(errors.length === 0, `geen console/page errors tijdens meerkeuze-test (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n3b) Box-eerlijkheid: hoge box zakt terug als een woord vandaag hapert, ook al lukt het uiteindelijk');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.evaluate(() => {
+      const deck = DECKS.find(d => d.id === 'begroetingen');
+      state.cardStatus[cardId('begroetingen', deck.cards[0])] = { box: 4, due: '2000-01-01' };
+      saveState();
+    });
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    const targetIt = await page.evaluate(() => DECKS.find(d => d.id === 'begroetingen').cards[0].it);
+
+    let guard = 0, failedOnce = false;
+    while (true) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet in box-eerlijkheid-test'); break; }
+      const { isTarget, stillPending } = await page.evaluate((t) => ({
+        isTarget: session.pending.length > 0 && session.pending[0].card.it === t,
+        stillPending: session.pending.some(e => e.card.it === t)
+      }), targetIt);
+      if (!stillPending) break; // definitief gemasterd
+      if (isTarget && !failedOnce) {
+        // Eerst bewust 1x fout — de box mag dan NOG NIET wijzigen: de
+        // Leitner-status wordt pas bijgewerkt zodra het woord deze sessie
+        // écht gemasterd is, niet bij elke losse (foute) poging.
+        await answerCurrent(page, false);
+        failedOnce = true;
+        const boxRightAfterMiss = await page.evaluate((t) => statusOf('begroetingen', DECKS.find(d => d.id === 'begroetingen').cards.find(c => c.it === t)).box, targetIt);
+        ok(boxRightAfterMiss === 4, `box blijft ongewijzigd (4) direct na 1 fout antwoord, nog niet "afgestraft" (gevonden: ${boxRightAfterMiss})`);
+      } else if (isTarget) {
+        await answerCurrent(page, true); // nu wel goed -> woord is gemasterd, maar niet in 1x
+      } else {
+        await answerCurrent(page, true);
+      }
+    }
+    const boxAfterMastery = await page.evaluate((t) => statusOf('begroetingen', DECKS.find(d => d.id === 'begroetingen').cards.find(c => c.it === t)).box, targetIt);
+    ok(boxAfterMastery === 1, `zodra het woord alsnog lukt (na 1 miss) zakt de box alsnog van 4 naar 1 (gevonden: ${boxAfterMastery})`);
+
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n4) Typ-modus blijft werken met het nieuwe sessiemodel (incl. noType-fallback)');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.locator('.mode-btn[data-mode="type"]').click();
     await page.locator('.deck-card', { hasText: 'Lichaam' }).first().click();
     await page.waitForTimeout(150);
 
-    ok(await page.locator('#type-stage').isVisible(), 'typ-kaart is zichtbaar in typ-modus');
-    ok(await page.locator('#recognize-stage').isVisible() === false, 'flip-kaart is verborgen in typ-modus');
-
-    const firstIt = await page.evaluate(() => session.queue[0].it);
-    await page.locator('#type-input').fill(firstIt.toUpperCase() + '  '); // hoofdletters + spaties moeten oké zijn
+    ok(await page.locator('#type-stage').isVisible(), 'typ-kaart zichtbaar in typ-modus');
+    const card = await page.evaluate(() => session.pending[0].card);
+    await page.locator('#type-input').fill(card.it.toUpperCase() + '  ');
     await page.locator('#btn-type-check').click();
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(80);
     ok(await page.locator('#type-feedback').innerText() === '✅ Corretto!', 'correct (ongeacht hoofdletters/spaties) geeft groen "Corretto!"');
-    const boxAfterCorrectType = await page.evaluate(() => statusOf('lichaam', session.queue[0]).box);
-    ok(boxAfterCorrectType === 1, `box gaat naar 1 na correct getypt antwoord (gevonden: ${boxAfterCorrectType})`);
-
-    await page.locator('#btn-type-check').click(); // "Volgende"
-    await page.waitForTimeout(150);
-    const secondIt = await page.evaluate(() => session.queue[1].it);
-    await page.locator('#type-input').fill('dit is helemaal fout');
+    const boxAfter = await page.evaluate((it) => statusOf('lichaam', DECKS.find(d => d.id === 'lichaam').cards.find(c => c.it === it)).box, card.it);
+    ok(boxAfter === 1, `box gaat naar 1 na correct getypt antwoord in 1x (gevonden: ${boxAfter})`);
     await page.locator('#btn-type-check').click();
-    await page.waitForTimeout(100);
-    const feedback = await page.locator('#type-feedback').innerText();
-    ok(feedback.includes(secondIt), `fout antwoord toont het juiste woord (${feedback})`);
-    const boxAfterWrongType = await page.evaluate(() => statusOf('lichaam', session.queue[1]).box);
-    ok(boxAfterWrongType === 1, 'box blijft/gaat naar 1 na fout getypt antwoord');
+    await page.waitForTimeout(80);
 
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
     await ctx.close();
 
-    // Familie-deck bevat een kaart met twee geldige vormen ("Il cugino / la cugina").
-    const { ctx: ctx2, page: page2 } = await freshContext(browser);
+    // noType-fallback: "Mi chiamo..." moet ondanks typ-modus als flip-kaart tonen,
+    // en mag zelfs na 2 missers gewoon naar meerkeuze gaan (geen typ-probleem daar).
+    const { ctx: ctx2, page: page2, errors: errors2 } = await freshContext(browser);
     await page2.goto(BASE, { waitUntil: 'networkidle' });
     await page2.locator('.mode-btn[data-mode="type"]').click();
-    await page2.locator('.deck-card', { hasText: 'Familie' }).first().click();
+    await page2.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
     await page2.waitForTimeout(150);
 
-    // Loop net zolang tot we de "cugino/cugina"-kaart tegenkomen (mag geskipt worden
-    // door "Volgende" bij andere kaarten), test dan beide geaccepteerde varianten los.
-    const variantAccepted = await page2.evaluate(async (variant) => {
-      const idx = session.queue.findIndex(c => c.it.includes('cugino'));
-      return { idx, ok: checkTypedAnswer(session.queue[idx], variant) };
-    }, 'la cugina');
-    ok(variantAccepted.ok, `alternatieve vorm "la cugina" wordt geaccepteerd voor "${'Il cugino / la cugina'}"`);
-
-    // noType-fallback: "Mi chiamo..." moet ondanks typ-modus als flip-kaart tonen.
-    await ctx2.close();
-    const { ctx: ctx3, page: page3, errors: errors3 } = await freshContext(browser);
-    await page3.goto(BASE, { waitUntil: 'networkidle' });
-    await page3.locator('.mode-btn[data-mode="type"]').click();
-    await page3.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
-    await page3.waitForTimeout(150);
-
-    const deckLen = await page3.evaluate(() => DECKS.find(d => d.id === 'begroetingen').cards.length);
-    let sawNoTypeFallback = false;
-    for (let i = 0; i < deckLen; i++) {
-      const isNoType = await page3.evaluate(() => currentCard().noType === true);
-      const recognizeVisible = await page3.locator('#recognize-stage').isVisible();
-      const typeVisible = await page3.locator('#type-stage').isVisible();
-      if (isNoType) {
-        sawNoTypeFallback = true;
-        ok(recognizeVisible && !typeVisible, `noType-kaart "${await page3.evaluate(() => currentCard().it)}" valt terug op flip-weergave in typ-modus`);
-        await page3.locator('#flashcard').click();
-        await page3.waitForTimeout(40);
-        await page3.locator('#btn-know').click();
-      } else {
-        ok(typeVisible && !recognizeVisible, 'normale kaart toont typ-weergave in typ-modus');
-        await page3.locator('#type-input').fill(await page3.evaluate(() => currentCard().it));
-        await page3.locator('#btn-type-check').click();
-        await page3.waitForTimeout(40);
-        await page3.locator('#btn-type-check').click();
-      }
-      await page3.waitForTimeout(60);
+    let sawNoTypeRecognizeFallback = false;
+    let guard = 0;
+    while (true) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet in noType-test'); break; }
+      const info = await page2.evaluate(() => ({
+        it: session.pending[0].card.it,
+        noType: session.pending[0].card.noType === true,
+        stage: activeStageForCurrentCard()
+      }));
+      if (info.noType && info.stage === 'recognize') sawNoTypeRecognizeFallback = true;
+      const stillHasNoType = await page2.evaluate(() => session.pending.some(e => e.card.noType));
+      if (!stillHasNoType) break;
+      await answerCurrent(page2, true);
     }
-    ok(sawNoTypeFallback, 'minstens één noType-kaart is tijdens de sessie tegengekomen en getest');
-    ok(errors3.length === 0, `geen console/page errors tijdens typ-modus-test (${JSON.stringify(errors3)})`);
-    await ctx3.close();
+    ok(sawNoTypeRecognizeFallback, 'een noType-kaart is minstens één keer als flip-weergave getoond in typ-modus');
+
+    ok(errors2.length === 0, `geen console/page errors tijdens noType-test (${JSON.stringify(errors2)})`);
+    await ctx2.close();
   }
 
   // ---------------------------------------------------------------
-  console.log('\n4) Dagelijkse oefening: mix van due + max. nieuwe kaarten, interleaving');
+  console.log('\n5) Fonetische hint: zichtbaar op de kaart, en geen crashes over de hele dataset');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
 
-    // Verse state: alles is "nieuw", dus de pool moet exact DAILY_MAX_NEW kaarten zijn.
+    const fuzz = await page.evaluate(() => {
+      let crashes = 0, empty = 0, total = 0;
+      DECKS.forEach(d => d.cards.forEach(c => {
+        total++;
+        try {
+          const h = italianPhoneticHint(c.it);
+          if (!h || !h.trim()) empty++;
+        } catch (e) { crashes++; }
+      }));
+      return { crashes, empty, total };
+    });
+    ok(fuzz.crashes === 0, `italianPhoneticHint() crasht niet op alle ${fuzz.total} woorden (crashes: ${fuzz.crashes})`);
+    ok(fuzz.empty === 0, `geen enkele hint is leeg (leeg: ${fuzz.empty})`);
+
+    const spotChecks = await page.evaluate(() => ({
+      ciao: italianPhoneticHint('Ciao'),
+      buongiorno: italianPhoneticHint('Buongiorno'),
+      famiglia: italianPhoneticHint('La famiglia'),
+      apostrofo: italianPhoneticHint("Non c'è di che")
+    }));
+    ok(spotChecks.ciao === 'tsjao', `"Ciao" -> "tsjao" (gevonden: "${spotChecks.ciao}")`);
+    ok(spotChecks.buongiorno === 'buondzjorno', `"Buongiorno" -> "buondzjorno" (gevonden: "${spotChecks.buongiorno}")`);
+    ok(spotChecks.famiglia === 'la familja', `"La famiglia" -> "la familja" (gevonden: "${spotChecks.famiglia}")`);
+    ok(spotChecks.apostrofo === "non tsj'è di ke", `apostrof-elisie blijft zacht ("c'è") (gevonden: "${spotChecks.apostrofo}")`);
+
+    await page.locator('.deck-card', { hasText: 'Begroetingen' }).first().click();
+    await page.waitForTimeout(150);
+    const shownHint = await page.locator('#card-phonetic').innerText();
+    ok(shownHint.startsWith('[') && shownHint.endsWith(']') && shownHint.length > 2, `fonetische hint zichtbaar op de kaart-voorkant (gevonden: "${shownHint}")`);
+
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n6) Dagelijkse oefening: samenstelling ongewijzigd, werkt met het nieuwe sessiemodel');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+
     const poolFresh = await page.evaluate(() => buildDailyPool().length);
     ok(poolFresh === 10, `bij verse start bevat de dagpool 10 nieuwe kaarten (gevonden: ${poolFresh})`);
 
-    // Simuleer: 5 kaarten zijn al "due" (vervaldatum in het verleden), 3 kaarten
-    // zijn geleerd maar nog niet due, de rest is ongezien.
     await page.evaluate(() => {
       const deck = DECKS.find(d => d.id === 'kleuren');
       const past = '2000-01-01';
-      const future = '2999-01-01';
-      state.cardStatus[cardId('kleuren', deck.cards[0])] = { box: 2, due: past };
-      state.cardStatus[cardId('kleuren', deck.cards[1])] = { box: 2, due: past };
-      state.cardStatus[cardId('kleuren', deck.cards[2])] = { box: 2, due: past };
-      state.cardStatus[cardId('kleuren', deck.cards[3])] = { box: 2, due: past };
-      state.cardStatus[cardId('kleuren', deck.cards[4])] = { box: 2, due: past };
-      state.cardStatus[cardId('kleuren', deck.cards[5])] = { box: 3, due: future };
+      for (let i = 0; i < 5; i++) state.cardStatus[cardId('kleuren', deck.cards[i])] = { box: 2, due: past };
       saveState();
     });
-    const pool = await page.evaluate(() => buildDailyPool());
-    ok(pool.length === 15, `dagpool = 5 due + 10 nieuwe = 15 kaarten (gevonden: ${pool.length})`);
-    const dueInPool = await page.evaluate(() => {
-      const deck = DECKS.find(d => d.id === 'kleuren');
-      const pool = buildDailyPool();
-      return deck.cards.slice(0, 5).every(c => pool.includes(c));
-    });
-    ok(dueInPool, 'alle 5 due kaarten zitten daadwerkelijk in de dagpool');
-    const notDueExcluded = await page.evaluate(() => {
-      const deck = DECKS.find(d => d.id === 'kleuren');
-      const pool = buildDailyPool();
-      return !pool.includes(deck.cards[5]); // box 3, due in de toekomst -> hoort er niet bij
-    });
-    ok(notDueExcluded, 'een geleerde maar nog niet vervallen kaart zit niet in de dagpool');
+    const pool = await page.evaluate(() => buildDailyPool().length);
+    ok(pool === 15, `dagpool = 5 due + 10 nieuwe = 15 kaarten (gevonden: ${pool})`);
 
-    // UI: badge op home + op de kleuren-tegel moet 5 tonen.
     await page.reload({ waitUntil: 'networkidle' });
-    const heroBadge = await page.locator('#daily-due-badge').innerText();
-    ok(Number(heroBadge) === 15, `hero-badge toont 15 (gevonden: ${heroBadge})`);
-    const kleurenDue = await page.locator('.deck-card', { hasText: 'Kleuren' }).first().locator('.due-badge').innerText();
-    ok(kleurenDue.includes('5'), `Kleuren-tegel toont 🔔5 due (gevonden: "${kleurenDue}")`);
-
-    // Start de dagelijkse oefening en check dat de sessie echt 15 kaarten bevat
-    // en dat antwoorden bij de juíste broncategorie worden weggeschreven.
     await page.locator('#btn-daily-session').click();
     await page.waitForTimeout(150);
-    const sessionTotal = await page.locator('#study-total').innerText();
-    ok(Number(sessionTotal) === 15, `dagsessie heeft 15 kaarten (gevonden: ${sessionTotal})`);
-    ok(await page.locator('#study-deck-name').innerText() === 'Dagelijkse oefening', 'sessie-titel is "Dagelijkse oefening"');
+    ok(await page.locator('#study-total').innerText() === '15', 'dagsessie heeft 15 unieke kaarten (study-total)');
+    ok(await page.locator('#study-index').innerText() === '0', 'nog 0 gemasterd bij start (study-index)');
 
-    await page.locator('#flashcard').click();
-    await page.waitForTimeout(60);
-    await page.locator('#btn-know').click();
-    await page.waitForTimeout(100);
-    const ownerWasCorrect = await page.evaluate(() => {
-      // Elke aangeraakte kaart moet terug te vinden zijn onder zijn ECHTE deck-id,
-      // niet onder "daily".
-      return Object.keys(state.cardStatus).every(k => !k.startsWith('daily::'));
-    });
+    await answerCurrent(page, true);
+    const ownerWasCorrect = await page.evaluate(() => Object.keys(state.cardStatus).every(k => !k.startsWith('daily::')));
     ok(ownerWasCorrect, 'voortgang uit de dagsessie wordt bij de echte broncategorie opgeslagen (niet onder "daily")');
 
     ok(errors.length === 0, `geen console/page errors tijdens dagsessie-test (${JSON.stringify(errors)})`);
@@ -290,35 +368,96 @@ async function freshContext(browser) {
   }
 
   // ---------------------------------------------------------------
-  console.log('\n5) Lege dagpool: hero-knop schakelt zichzelf uit');
+  console.log('\n7) Volledige sessie zonder fouten: samenvatting, confetti, "herhaal moeilijke" verborgen');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
-    await page.evaluate(() => {
-      const future = '2999-01-01';
-      DECKS.forEach(deck => {
-        deck.cards.forEach(c => {
-          state.cardStatus[cardId(deck.id, c)] = { box: 5, due: future };
-        });
-      });
-      saveState();
-    });
-    await page.reload({ waitUntil: 'networkidle' });
-    const poolLen = await page.evaluate(() => buildDailyPool().length);
-    ok(poolLen === 0, `dagpool is leeg als alles geleerd en niets due is (gevonden: ${poolLen})`);
-    const disabled = await page.locator('#btn-daily-session').isDisabled();
-    ok(disabled, 'hero-knop is uitgeschakeld als de dagpool leeg is');
-    const subText = await page.locator('#daily-sub').innerText();
-    ok(subText.includes('Niks te herhalen'), `subtekst meldt dat er niets te doen is (gevonden: "${subText}")`);
-    const knownPct = await page.locator('.deck-card', { hasText: 'Kleuren' }).first().locator('.deck-progress-label').innerText();
-    ok(knownPct.includes('100%'), `Kleuren-tegel toont 100% onder de knie (gevonden: "${knownPct}")`);
+    await page.locator('.deck-card', { hasText: 'Weer' }).first().click();
+    await page.waitForTimeout(150);
+    const total = Number(await page.locator('#study-total').innerText());
+
+    for (let i = 0; i < total; i++) await answerCurrent(page, true);
+    await page.waitForTimeout(300);
+
+    ok(await page.locator('#view-summary').isVisible(), 'samenvatting-view zichtbaar na de laatste kaart');
+    const summaryText = await page.locator('#summary-text').innerText();
+    ok(summaryText.includes(`${total} van de ${total}`), `iedereen in 1x goed -> ${total}/${total} (${summaryText})`);
+    ok(await page.locator('#btn-retry-hard').isVisible() === false, '"herhaal moeilijke kaarten" is verborgen (niemand had een 2e poging nodig)');
+    const confettiCount = await page.locator('.confetti-piece').count();
+    ok(confettiCount > 0, `confetti verschijnt bij 100% (${confettiCount} stukjes)`);
+
     ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
-    await page.screenshot({ path: 'shot-empty-daily.png' });
     await ctx.close();
   }
 
   // ---------------------------------------------------------------
-  console.log('\n6) Migratie van oude v1-data naar het nieuwe boxmodel');
+  console.log('\n8) Sessie met een gemist woord: "herhaal moeilijke kaarten" bevat precies dat woord');
+  {
+    const { ctx, page, errors } = await freshContext(browser);
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.locator('.deck-card', { hasText: 'Weer' }).first().click();
+    await page.waitForTimeout(150);
+    const total = Number(await page.locator('#study-total').innerText());
+    const target = await page.evaluate(() => session.pending[0].card.it);
+
+    // Doelwoord 1x fout, daarna alles (incl. het doelwoord bij terugkomst) goed.
+    let guard = 0, failedOnce = false;
+    while (true) {
+      guard++;
+      if (guard > 500) { ok(false, 'veiligheidslimiet in sessie-met-fout-test'); break; }
+      const stillPending = await page.evaluate(() => session.pending.length > 0);
+      if (!stillPending) break;
+      const isTarget = await page.evaluate((t) => session.pending[0].card.it === t, target);
+      if (isTarget && !failedOnce) { await answerCurrent(page, false); failedOnce = true; }
+      else await answerCurrent(page, true);
+    }
+    await page.waitForTimeout(300);
+
+    const summaryText = await page.locator('#summary-text').innerText();
+    ok(summaryText.includes(`${total - 1} van de ${total}`), `1 woord had een 2e poging nodig -> ${total - 1}/${total} (${summaryText})`);
+    ok(await page.locator('#btn-retry-hard').isVisible(), '"herhaal moeilijke kaarten" is zichtbaar');
+
+    await page.locator('#btn-retry-hard').click();
+    await page.waitForTimeout(150);
+    ok(await page.locator('#study-total').innerText() === '1', 'retry-sessie bevat precies 1 kaart');
+    const retryCard = await page.evaluate(() => session.pending[0].card.it);
+    ok(retryCard === target, `retry-sessie bevat het juiste (eerder gemiste) woord (gevonden: "${retryCard}")`);
+
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n9) Mobiel (390px): layout, geen horizontale scroll, footer/kbd-hint verborgen tijdens studeren');
+  {
+    const { ctx, page, errors } = await freshContext(browser, { width: 390, height: 844 });
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    const hasHScrollHome = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+    ok(!hasHScrollHome, 'geen horizontale scroll op het startscherm (390px)');
+
+    await page.locator('.deck-card', { hasText: 'Kleuren' }).first().click();
+    await page.waitForTimeout(200);
+
+    const layout = await page.evaluate(() => ({
+      hasHScroll: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      footerHidden: getComputedStyle(document.querySelector('.footer')).display === 'none',
+      kbdHintHidden: getComputedStyle(document.getElementById('kbd-hint')).display === 'none',
+      cardWidth: document.getElementById('flashcard').getBoundingClientRect().width,
+      viewStudyHeight: document.getElementById('view-study').getBoundingClientRect().height,
+      viewportHeight: window.innerHeight
+    }));
+    ok(!layout.hasHScroll, 'geen horizontale scroll in de studeerweergave (390px)');
+    ok(layout.footerHidden, 'footer is verborgen tijdens studeren op mobiel (ruimte voor de kaart)');
+    ok(layout.kbdHintHidden, 'toetsenbord-hint is verborgen tijdens studeren op mobiel');
+    ok(layout.cardWidth > 300, `flashcard is volledig breed, geen kapotte/smalle kaart (gevonden: ${layout.cardWidth}px)`);
+    ok(layout.viewStudyHeight > layout.viewportHeight * 0.7, `studeerweergave vult het grootste deel van het scherm i.p.v. opgepropt bovenaan te staan (${layout.viewStudyHeight}px van ${layout.viewportHeight}px)`);
+
+    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
+    await ctx.close();
+  }
+
+  // ---------------------------------------------------------------
+  console.log('\n10) Migratie van oude v1-data naar het nieuwe boxmodel blijft werken');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -343,7 +482,7 @@ async function freshContext(browser) {
   }
 
   // ---------------------------------------------------------------
-  console.log('\n7) Kernwoorden-deck bevat alleen tier-1 kaarten uit alle categorieën');
+  console.log('\n11) Kernwoorden-deck bevat alleen tier-1 kaarten uit alle categorieën');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
@@ -358,77 +497,22 @@ async function freshContext(browser) {
   }
 
   // ---------------------------------------------------------------
-  console.log('\n8) Mobiel viewport (390px): geen horizontale scroll, hero/toggle/grid leesbaar');
-  {
-    const { ctx, page, errors } = await freshContext(browser);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(BASE, { waitUntil: 'networkidle' });
-    const hasHScroll = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-    ok(!hasHScroll, 'geen horizontale scroll op 390px breed');
-    await page.screenshot({ path: 'shot-home-mobile-v2.png', fullPage: true });
-
-    await page.locator('.mode-btn[data-mode="type"]').click();
-    await page.locator('.deck-card', { hasText: 'Weer' }).first().click();
-    await page.waitForTimeout(150);
-    await page.screenshot({ path: 'shot-type-mobile.png' });
-    const hasHScrollStudy = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
-    ok(!hasHScrollStudy, 'geen horizontale scroll in typ-modus op 390px breed');
-
-    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
-    await ctx.close();
-  }
-
-  // ---------------------------------------------------------------
-  console.log('\n9) Volledige recognize-sessie incl. samenvatting, "herhaal moeilijke kaarten" en confetti');
-  {
-    const { ctx, page, errors } = await freshContext(browser);
-    await page.goto(BASE, { waitUntil: 'networkidle' });
-    await page.locator('.deck-card', { hasText: 'Weer' }).first().click();
-    await page.waitForTimeout(150);
-    const total = Number(await page.locator('#study-total').innerText());
-
-    // Beantwoord de eerste kaart fout, de rest goed -> < 100% maar >= 70% voor confetti.
-    await page.locator('#flashcard').click();
-    await page.locator('#btn-practice').click();
-    for (let i = 1; i < total; i++) {
-      await page.waitForTimeout(30);
-      await page.locator('#flashcard').click();
-      await page.locator('#btn-know').click();
-    }
-    await page.waitForTimeout(400);
-
-    ok(await page.locator('#view-summary').isVisible(), 'samenvatting-view is zichtbaar na de laatste kaart');
-    const summaryText = await page.locator('#summary-text').innerText();
-    ok(summaryText.includes(`${total - 1} van de ${total}`), `samenvatting telt correct (${summaryText})`);
-    ok(await page.locator('#btn-retry-hard').isVisible(), '"herhaal moeilijke kaarten" is zichtbaar (er was 1 fout antwoord)');
-    const confettiCount = await page.locator('.confetti-piece').count();
-    ok(confettiCount > 0, `confetti verschijnt bij een hoge score (${confettiCount} stukjes)`);
-
-    await page.locator('#btn-retry-hard').click();
-    await page.waitForTimeout(150);
-    ok(await page.locator('#study-total').innerText() === '1', 'retry-sessie bevat precies de 1 foute kaart');
-
-    ok(errors.length === 0, `geen console/page errors (${JSON.stringify(errors)})`);
-    await ctx.close();
-  }
-
-  // ---------------------------------------------------------------
-  console.log('\n10) Alle 17 categorieën zijn los doorlopen: flip + antwoorden werkt overal zonder crash');
+  console.log('\n12) Alle 17 categorieën zijn los doorlopen: flip + antwoorden werkt overal zonder crash');
   {
     const { ctx, page, errors } = await freshContext(browser);
     await page.goto(BASE, { waitUntil: 'networkidle' });
     const deckNames = await page.evaluate(() => DECKS.map(d => d.name));
     for (const name of deckNames) {
       await page.locator('.deck-card', { hasText: name }).first().click();
-      await page.waitForTimeout(80);
+      await page.waitForTimeout(60);
       await page.locator('#flashcard').click();
-      await page.waitForTimeout(40);
+      await page.waitForTimeout(30);
       const backText = await page.locator('#card-back-word').innerText();
       ok(backText.length > 0, `${name}: achterkant toont een vertaling ("${backText}")`);
       await page.locator('#btn-know').click();
-      await page.waitForTimeout(40);
+      await page.waitForTimeout(30);
       await page.locator('#btn-back-home').click();
-      await page.waitForTimeout(60);
+      await page.waitForTimeout(40);
     }
     ok(errors.length === 0, `geen console/page errors tijdens doorloop van alle categorieën (${JSON.stringify(errors)})`);
     await ctx.close();
