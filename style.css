@@ -547,6 +547,17 @@ main#app {
   color: #9a7a2e;
 }
 
+/* Herinnering aan het Italiaanse woord + uitspraak op de achterkant, zodat
+   je de fonetiek ook nog ziet op het moment dat je het antwoord checkt
+   (niet alleen heel even op de voorkant). */
+.back-source-hint {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  color: #6b5a2a;
+}
+
 /* ---------- Typ-modus ---------- */
 .type-card-stage {
   margin-top: 22px;
@@ -591,6 +602,14 @@ main#app {
 }
 .type-input:focus { outline: 3px solid var(--yellow); outline-offset: 2px; }
 .type-input:disabled { opacity: .75; }
+
+/* Reveal-kaart (typ-modus, woorden met meerdere vormen): dezelfde
+   kaartstijl als typen/meerkeuze, geel zodra het antwoord getoond is —
+   dezelfde "dit is het antwoord"-kleur als de achterkant van de flip-kaart. */
+.reveal-answer {
+  background: var(--yellow);
+}
+
 .type-feedback {
   min-height: 24px;
   font-family: var(--font-display);
