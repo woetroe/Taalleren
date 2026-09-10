@@ -1,5 +1,12 @@
 // Woordenschat voor de Italiaans-flashcardsapp.
-// Elke deck heeft een id, naam, emoji, accentkleur en een lijst kaarten (it = Italiaans, nl = Nederlands).
+//
+// Elke deck heeft een id, naam, emoji, accentkleur en een lijst kaarten.
+// Kaartvelden:
+//   it      Italiaans (front)
+//   nl      Nederlandse vertaling (back)
+//   tier    optioneel, 1 = hoogfrequent/essentieel kernwoord (zie CORE_DECK in script.js)
+//   ex      optioneel, { it, nl } voorbeeldzin voor context (elaborative encoding)
+//   noType  optioneel, true = ongeschikt voor de typ-modus (bv. een sjabloon met "...")
 const DECKS = [
   {
     id: 'begroetingen',
@@ -7,21 +14,27 @@ const DECKS = [
     emoji: '👋',
     color: '#FF6B4A',
     cards: [
-      { it: 'Ciao', nl: 'Hoi / Doei' },
-      { it: 'Buongiorno', nl: 'Goedemorgen / Goedendag' },
-      { it: 'Buonasera', nl: 'Goedenavond' },
+      { it: 'Ciao', nl: 'Hoi / Doei', tier: 1 },
+      { it: 'Buongiorno', nl: 'Goedemorgen / Goedendag', tier: 1 },
+      { it: 'Buonasera', nl: 'Goedenavond', tier: 1 },
       { it: 'Buonanotte', nl: 'Welterusten' },
-      { it: 'Arrivederci', nl: 'Tot ziens' },
+      { it: 'Arrivederci', nl: 'Tot ziens', tier: 1 },
       { it: 'A presto', nl: 'Tot snel' },
-      { it: 'Come stai?', nl: 'Hoe gaat het met je?' },
+      { it: 'Ci vediamo', nl: 'Tot ziens / We zien elkaar' },
+      { it: 'Come stai?', nl: 'Hoe gaat het met je?', tier: 1 },
+      { it: 'Tutto bene?', nl: 'Alles goed?' },
       { it: 'Sto bene, grazie', nl: 'Het gaat goed, dank je' },
       { it: 'Piacere', nl: 'Aangenaam' },
-      { it: 'Per favore', nl: 'Alsjeblieft (bij een verzoek)' },
-      { it: 'Grazie', nl: 'Dank je' },
-      { it: 'Prego', nl: 'Graag gedaan / Alsjeblieft' },
-      { it: 'Scusa', nl: 'Sorry / Pardon' },
-      { it: 'Come ti chiami?', nl: 'Hoe heet je?' },
-      { it: 'Mi chiamo...', nl: 'Ik heet...' }
+      { it: 'Per favore', nl: 'Alsjeblieft (bij een verzoek)', tier: 1 },
+      { it: 'Grazie', nl: 'Dank je', tier: 1 },
+      { it: 'Prego', nl: 'Graag gedaan / Alsjeblieft', tier: 1 },
+      { it: 'Non c\'è di che', nl: 'Geen dank' },
+      { it: 'Scusa', nl: 'Sorry / Pardon', tier: 1 },
+      { it: 'Salve', nl: 'Hallo (formeel)' },
+      { it: 'Benvenuto', nl: 'Welkom' },
+      { it: 'Buon fine settimana', nl: 'Fijn weekend' },
+      { it: 'Come ti chiami?', nl: 'Hoe heet je?', tier: 1 },
+      { it: 'Mi chiamo...', nl: 'Ik heet... (jouw naam)', noType: true }
     ]
   },
   {
@@ -47,7 +60,14 @@ const DECKS = [
       { it: 'Pranzo', nl: 'Lunch' },
       { it: 'Cena', nl: 'Diner' },
       { it: 'Buon appetito', nl: 'Eet smakelijk' },
-      { it: 'Il conto, per favore', nl: 'De rekening, alsjeblieft' }
+      { it: 'La birra', nl: 'Het bier' },
+      { it: 'Il tè', nl: 'De thee' },
+      { it: 'Il gelato', nl: 'Het ijsje' },
+      { it: 'Il dolce', nl: 'Het dessert / de zoetigheid' },
+      { it: "L'uovo", nl: 'Het ei' },
+      { it: 'Il pollo', nl: 'De kip' },
+      { it: 'Il riso', nl: 'De rijst' },
+      { it: "L'olio d'oliva", nl: 'De olijfolie' }
     ]
   },
   {
@@ -56,20 +76,40 @@ const DECKS = [
     emoji: '🔢',
     color: '#2DD4BF',
     cards: [
-      { it: 'Uno', nl: 'Een' },
-      { it: 'Due', nl: 'Twee' },
-      { it: 'Tre', nl: 'Drie' },
-      { it: 'Quattro', nl: 'Vier' },
-      { it: 'Cinque', nl: 'Vijf' },
-      { it: 'Sei', nl: 'Zes' },
-      { it: 'Sette', nl: 'Zeven' },
-      { it: 'Otto', nl: 'Acht' },
-      { it: 'Nove', nl: 'Negen' },
-      { it: 'Dieci', nl: 'Tien' },
+      { it: 'Uno', nl: 'Een', tier: 1 },
+      { it: 'Due', nl: 'Twee', tier: 1 },
+      { it: 'Tre', nl: 'Drie', tier: 1 },
+      { it: 'Quattro', nl: 'Vier', tier: 1 },
+      { it: 'Cinque', nl: 'Vijf', tier: 1 },
+      { it: 'Sei', nl: 'Zes', tier: 1 },
+      { it: 'Sette', nl: 'Zeven', tier: 1 },
+      { it: 'Otto', nl: 'Acht', tier: 1 },
+      { it: 'Nove', nl: 'Negen', tier: 1 },
+      { it: 'Dieci', nl: 'Tien', tier: 1 },
+      { it: 'Undici', nl: 'Elf' },
+      { it: 'Dodici', nl: 'Twaalf' },
+      { it: 'Tredici', nl: 'Dertien' },
+      { it: 'Quattordici', nl: 'Veertien' },
+      { it: 'Quindici', nl: 'Vijftien' },
+      { it: 'Sedici', nl: 'Zestien' },
+      { it: 'Diciassette', nl: 'Zeventien' },
+      { it: 'Diciotto', nl: 'Achttien' },
+      { it: 'Diciannove', nl: 'Negentien' },
       { it: 'Venti', nl: 'Twintig' },
       { it: 'Trenta', nl: 'Dertig' },
+      { it: 'Quaranta', nl: 'Veertig' },
+      { it: 'Cinquanta', nl: 'Vijftig' },
+      { it: 'Sessanta', nl: 'Zestig' },
+      { it: 'Settanta', nl: 'Zeventig' },
+      { it: 'Ottanta', nl: 'Tachtig' },
+      { it: 'Novanta', nl: 'Negentig' },
       { it: 'Cento', nl: 'Honderd' },
-      { it: 'Mille', nl: 'Duizend' }
+      { it: 'Mille', nl: 'Duizend' },
+      { it: 'Primo', nl: 'Eerste' },
+      { it: 'Secondo', nl: 'Tweede' },
+      { it: 'Terzo', nl: 'Derde' },
+      { it: 'Quarto', nl: 'Vierde' },
+      { it: 'Quinto', nl: 'Vijfde' }
     ]
   },
   {
@@ -85,13 +125,20 @@ const DECKS = [
       { it: 'La valigia', nl: 'De koffer' },
       { it: "L'albergo", nl: 'Het hotel' },
       { it: 'La strada', nl: 'De straat' },
-      { it: "Dov'è...?", nl: 'Waar is...?' },
+      { it: "Dov'è...?", nl: 'Waar is...?', tier: 1, noType: true },
       { it: 'A sinistra', nl: 'Links' },
       { it: 'A destra', nl: 'Rechts' },
       { it: 'Sempre dritto', nl: 'Rechtdoor' },
       { it: 'Il passaporto', nl: 'Het paspoort' },
       { it: 'La macchina', nl: 'De auto' },
-      { it: 'Il mare', nl: 'De zee' }
+      { it: 'Il mare', nl: 'De zee' },
+      { it: 'Il volo', nl: 'De vlucht' },
+      { it: 'La prenotazione', nl: 'De reservering' },
+      { it: "L'uscita", nl: 'De uitgang' },
+      { it: "L'entrata", nl: 'De ingang' },
+      { it: 'Il taxi', nl: 'De taxi' },
+      { it: 'La metro', nl: 'De metro' },
+      { it: 'Il ritardo', nl: 'De vertraging' }
     ]
   },
   {
@@ -111,7 +158,11 @@ const DECKS = [
       { it: 'La nonna', nl: 'De oma' },
       { it: 'Il marito', nl: 'De echtgenoot' },
       { it: 'La moglie', nl: 'De echtgenote' },
-      { it: "L'amico / l'amica", nl: 'De vriend / vriendin' }
+      { it: "L'amico / l'amica", nl: 'De vriend / vriendin' },
+      { it: 'Il cugino / la cugina', nl: 'De neef / nicht' },
+      { it: 'Lo zio', nl: 'De oom' },
+      { it: 'La zia', nl: 'De tante' },
+      { it: 'Il bambino / la bambina', nl: 'Het kind (jongen/meisje)' }
     ]
   },
   {
@@ -131,7 +182,37 @@ const DECKS = [
       { it: 'Sabato', nl: 'Zaterdag' },
       { it: 'Domenica', nl: 'Zondag' },
       { it: "L'ora", nl: 'Het uur' },
-      { it: 'Adesso', nl: 'Nu' }
+      { it: 'Adesso', nl: 'Nu' },
+      { it: 'La mattina', nl: 'De ochtend' },
+      { it: 'Il pomeriggio', nl: 'De middag' },
+      { it: 'La notte', nl: 'De nacht' },
+      { it: 'La settimana', nl: 'De week' },
+      { it: 'Il mese', nl: 'De maand' },
+      { it: "L'anno", nl: 'Het jaar' }
+    ]
+  },
+  {
+    id: 'maanden-seizoenen',
+    name: 'Maanden & Seizoenen',
+    emoji: '🍂',
+    color: '#FB923C',
+    cards: [
+      { it: 'Gennaio', nl: 'Januari' },
+      { it: 'Febbraio', nl: 'Februari' },
+      { it: 'Marzo', nl: 'Maart' },
+      { it: 'Aprile', nl: 'April' },
+      { it: 'Maggio', nl: 'Mei' },
+      { it: 'Giugno', nl: 'Juni' },
+      { it: 'Luglio', nl: 'Juli' },
+      { it: 'Agosto', nl: 'Augustus' },
+      { it: 'Settembre', nl: 'September' },
+      { it: 'Ottobre', nl: 'Oktober' },
+      { it: 'Novembre', nl: 'November' },
+      { it: 'Dicembre', nl: 'December' },
+      { it: 'La primavera', nl: 'De lente' },
+      { it: "L'estate", nl: 'De zomer' },
+      { it: "L'autunno", nl: 'De herfst' },
+      { it: "L'inverno", nl: 'De winter' }
     ]
   },
   {
@@ -150,7 +231,10 @@ const DECKS = [
       { it: 'Viola', nl: 'Paars' },
       { it: 'Rosa', nl: 'Roze' },
       { it: 'Grigio', nl: 'Grijs' },
-      { it: 'Marrone', nl: 'Bruin' }
+      { it: 'Marrone', nl: 'Bruin' },
+      { it: 'Azzurro', nl: 'Hemelsblauw' },
+      { it: 'Chiaro', nl: 'Licht (bv. verde chiaro = lichtgroen)' },
+      { it: 'Scuro', nl: 'Donker (bv. blu scuro = donkerblauw)' }
     ]
   },
   {
@@ -159,8 +243,8 @@ const DECKS = [
     emoji: '💬',
     color: '#F59E0B',
     cards: [
-      { it: 'Sì', nl: 'Ja' },
-      { it: 'No', nl: 'Nee' },
+      { it: 'Sì', nl: 'Ja', tier: 1 },
+      { it: 'No', nl: 'Nee', tier: 1 },
       { it: 'Forse', nl: 'Misschien' },
       { it: 'Molto', nl: 'Heel / veel' },
       { it: 'Poco', nl: 'Weinig' },
@@ -174,7 +258,15 @@ const DECKS = [
       { it: 'Caldo', nl: 'Warm' },
       { it: 'Freddo', nl: 'Koud' },
       { it: 'Facile', nl: 'Makkelijk' },
-      { it: 'Difficile', nl: 'Moeilijk' }
+      { it: 'Difficile', nl: 'Moeilijk' },
+      { it: 'E', nl: 'En' },
+      { it: 'Ma', nl: 'Maar' },
+      { it: 'Anche', nl: 'Ook' },
+      { it: 'Però', nl: 'Maar / Toch' },
+      { it: 'Quindi', nl: 'Dus' },
+      { it: 'Sempre', nl: 'Altijd' },
+      { it: 'Mai', nl: 'Nooit' },
+      { it: 'Ancora', nl: 'Nog / Weer' }
     ]
   },
   {
@@ -192,7 +284,11 @@ const DECKS = [
       { it: 'Il letto', nl: 'Het bed' },
       { it: 'La sedia', nl: 'De stoel' },
       { it: 'Il tavolo', nl: 'De tafel' },
-      { it: 'Le chiavi', nl: 'De sleutels' }
+      { it: 'Le chiavi', nl: 'De sleutels' },
+      { it: 'Il giardino', nl: 'De tuin' },
+      { it: 'Il soggiorno', nl: 'De woonkamer' },
+      { it: 'Lo specchio', nl: 'De spiegel' },
+      { it: 'La lampada', nl: 'De lamp' }
     ]
   },
   {
@@ -210,7 +306,134 @@ const DECKS = [
       { it: 'Innamorato', nl: 'Verliefd' },
       { it: 'Spaventato', nl: 'Bang' },
       { it: 'Sorpreso', nl: 'Verrast' },
-      { it: 'Tranquillo', nl: 'Rustig' }
+      { it: 'Tranquillo', nl: 'Rustig' },
+      { it: 'Emozionato', nl: 'Opgewonden' },
+      { it: 'Confuso', nl: 'Verward' },
+      { it: 'Orgoglioso', nl: 'Trots' },
+      { it: 'Geloso', nl: 'Jaloers' }
+    ]
+  },
+  {
+    id: 'werkwoorden',
+    name: 'Werkwoorden',
+    emoji: '🏃',
+    color: '#A3E635',
+    cards: [
+      { it: 'Essere', nl: 'Zijn', tier: 1, ex: { it: 'Io sono italiano.', nl: 'Ik ben Italiaans.' } },
+      { it: 'Avere', nl: 'Hebben', tier: 1, ex: { it: 'Ho fame.', nl: 'Ik heb honger.' } },
+      { it: 'Andare', nl: 'Gaan', tier: 1, ex: { it: 'Vado a casa.', nl: 'Ik ga naar huis.' } },
+      { it: 'Fare', nl: 'Doen / Maken', tier: 1, ex: { it: 'Cosa fai?', nl: 'Wat doe je?' } },
+      { it: 'Potere', nl: 'Kunnen', tier: 1, ex: { it: 'Posso aiutarti?', nl: 'Kan ik je helpen?' } },
+      { it: 'Volere', nl: 'Willen', tier: 1, ex: { it: 'Voglio un caffè.', nl: 'Ik wil een koffie.' } },
+      { it: 'Dovere', nl: 'Moeten', tier: 1, ex: { it: 'Devo andare.', nl: 'Ik moet gaan.' } },
+      { it: 'Sapere', nl: 'Weten / Kunnen (vaardigheid)', ex: { it: 'Non lo so.', nl: 'Ik weet het niet.' } },
+      { it: 'Dire', nl: 'Zeggen', ex: { it: 'Cosa dici?', nl: 'Wat zeg je?' } },
+      { it: 'Parlare', nl: 'Praten', ex: { it: 'Parli italiano?', nl: 'Spreek je Italiaans?' } },
+      { it: 'Mangiare', nl: 'Eten', ex: { it: 'Mangio la pizza.', nl: 'Ik eet pizza.' } },
+      { it: 'Bere', nl: 'Drinken', ex: { it: 'Bevo acqua.', nl: 'Ik drink water.' } },
+      { it: 'Vedere', nl: 'Zien', ex: { it: 'Ti vedo domani.', nl: 'Ik zie je morgen.' } },
+      { it: 'Venire', nl: 'Komen', ex: { it: 'Vieni con me?', nl: 'Kom je met mij mee?' } },
+      { it: 'Dare', nl: 'Geven', ex: { it: 'Mi dai il pane?', nl: 'Geef je mij het brood?' } },
+      { it: 'Prendere', nl: 'Nemen / Pakken', ex: { it: 'Prendo il treno.', nl: 'Ik neem de trein.' } },
+      { it: 'Capire', nl: 'Begrijpen', ex: { it: 'Non capisco.', nl: 'Ik begrijp het niet.' } },
+      { it: 'Piacere', nl: 'Bevallen / Leuk vinden ("mi piace" = ik vind het leuk)', tier: 1, ex: { it: "Mi piace l'Italia.", nl: 'Ik vind Italië leuk.' } },
+      { it: 'Stare', nl: 'Zijn / Blijven (toestand)', ex: { it: 'Come stai?', nl: 'Hoe gaat het met je?' } },
+      { it: 'Guardare', nl: 'Kijken', ex: { it: 'Guardo la TV.', nl: 'Ik kijk tv.' } }
+    ]
+  },
+  {
+    id: 'lichaam',
+    name: 'Lichaam',
+    emoji: '🧍',
+    color: '#F472B6',
+    cards: [
+      { it: 'La testa', nl: 'Het hoofd' },
+      { it: 'Gli occhi', nl: 'De ogen' },
+      { it: 'Il naso', nl: 'De neus' },
+      { it: 'La bocca', nl: 'De mond' },
+      { it: "L'orecchio", nl: 'Het oor' },
+      { it: 'La mano', nl: 'De hand' },
+      { it: 'Il braccio', nl: 'De arm' },
+      { it: 'La gamba', nl: 'Het been' },
+      { it: 'Il piede', nl: 'De voet' },
+      { it: 'Il cuore', nl: 'Het hart' },
+      { it: 'La schiena', nl: 'De rug' },
+      { it: 'I capelli', nl: 'Het haar' }
+    ]
+  },
+  {
+    id: 'kleding',
+    name: 'Kleding',
+    emoji: '👕',
+    color: '#FBBF24',
+    cards: [
+      { it: 'La maglietta', nl: 'Het T-shirt' },
+      { it: 'I pantaloni', nl: 'De broek' },
+      { it: 'La gonna', nl: 'De rok' },
+      { it: 'Il vestito', nl: 'De jurk / het pak' },
+      { it: 'Le scarpe', nl: 'De schoenen' },
+      { it: 'La giacca', nl: 'Het jasje' },
+      { it: 'Il cappello', nl: 'De hoed / muts' },
+      { it: 'Gli occhiali', nl: 'De bril' },
+      { it: 'La cintura', nl: 'De riem' },
+      { it: 'I calzini', nl: 'De sokken' }
+    ]
+  },
+  {
+    id: 'weer',
+    name: 'Weer',
+    emoji: '☀️',
+    color: '#7DD3FC',
+    cards: [
+      { it: 'Fa caldo', nl: 'Het is warm' },
+      { it: 'Fa freddo', nl: 'Het is koud' },
+      { it: 'Piove', nl: 'Het regent' },
+      { it: 'Nevica', nl: 'Het sneeuwt' },
+      { it: "C'è il sole", nl: 'De zon schijnt' },
+      { it: "C'è vento", nl: 'Het waait' },
+      { it: 'Il temporale', nl: 'Het onweer' },
+      { it: 'La nuvola', nl: 'De wolk' },
+      { it: 'Il cielo', nl: 'De lucht / hemel' }
+    ]
+  },
+  {
+    id: 'op-stap',
+    name: 'Winkelen & Uit eten',
+    emoji: '🛍️',
+    color: '#F87171',
+    cards: [
+      { it: 'Vorrei un caffè, per favore', nl: 'Ik zou graag een koffie willen, alsjeblieft', tier: 1 },
+      { it: 'Quanto costa?', nl: 'Hoeveel kost het?', tier: 1 },
+      { it: 'Posso pagare con la carta?', nl: 'Kan ik met kaart betalen?' },
+      { it: 'Il conto, per favore', nl: 'De rekening, alsjeblieft' },
+      { it: 'Dov\'è il bagno?', nl: 'Waar is het toilet?' },
+      { it: 'Sto solo guardando', nl: 'Ik kijk alleen maar rond' },
+      { it: 'È in saldo?', nl: 'Is het in de uitverkoop?' },
+      { it: 'La taglia', nl: 'De maat (kleding)' },
+      { it: 'Il resto', nl: 'Het wisselgeld' },
+      { it: 'Un tavolo per due, per favore', nl: 'Een tafel voor twee, alsjeblieft' }
+    ]
+  },
+  {
+    id: 'vraagwoorden',
+    name: 'Vraagwoorden & Voornaamwoorden',
+    emoji: '❓',
+    color: '#22D3EE',
+    cards: [
+      { it: 'Chi', nl: 'Wie', tier: 1 },
+      { it: 'Cosa / Che cosa', nl: 'Wat', tier: 1 },
+      { it: 'Dove', nl: 'Waar', tier: 1 },
+      { it: 'Quando', nl: 'Wanneer', tier: 1 },
+      { it: 'Perché', nl: 'Waarom / Omdat', tier: 1, ex: { it: 'Perché sei triste?', nl: 'Waarom ben je verdrietig?' } },
+      { it: 'Come', nl: 'Hoe', tier: 1 },
+      { it: 'Quanto', nl: 'Hoeveel', tier: 1 },
+      { it: 'Quale', nl: 'Welke', tier: 1 },
+      { it: 'Io', nl: 'Ik', tier: 1 },
+      { it: 'Tu', nl: 'Jij', tier: 1 },
+      { it: 'Lui / Lei', nl: 'Hij / Zij', tier: 1 },
+      { it: 'Noi', nl: 'Wij', tier: 1 },
+      { it: 'Voi', nl: 'Jullie', tier: 1 },
+      { it: 'Loro', nl: 'Zij (meervoud)', tier: 1 }
     ]
   }
 ];
