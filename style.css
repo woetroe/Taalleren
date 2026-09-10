@@ -456,8 +456,8 @@ main#app {
 
 .card-stage {
   margin-top: 22px;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
   perspective: 1400px;
 }
 
@@ -539,6 +539,14 @@ main#app {
   line-height: 1.4;
 }
 
+.phonetic-hint {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 15px;
+  color: #9a7a2e;
+}
+
 /* ---------- Typ-modus ---------- */
 .type-card-stage {
   margin-top: 22px;
@@ -594,6 +602,33 @@ main#app {
 .type-feedback.incorrect { color: #e5484d; }
 .type-check-btn { min-width: 200px; justify-content: center; }
 
+.choice-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  width: min(560px, 100%);
+}
+.choice-option {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  padding: 14px 12px;
+  border: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-sm);
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.choice-option:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: var(--shadow-md); }
+.choice-option:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--ink); }
+.choice-option:disabled { cursor: default; opacity: .8; }
+.choice-option.correct { background: var(--green); opacity: 1; }
+.choice-option.incorrect { background: #ffb4b0; opacity: 1; }
+
 .answer-buttons {
   margin-top: 30px;
   display: flex;
@@ -636,6 +671,7 @@ main#app {
   display: grid;
   place-items: center;
   min-height: 60vh;
+  min-height: 60dvh;
 }
 .summary-card {
   width: min(520px, 100%);
@@ -715,8 +751,7 @@ main#app {
 /* ---------- Responsive ---------- */
 @media (max-width: 520px) {
   .topbar { flex-wrap: wrap; gap: 10px; }
-  .flashcard { height: 260px; }
-  .study-top { grid-template-columns: auto 1fr auto; }
+  .study-top { grid-template-columns: auto 1fr auto; margin-top: 4px; }
   .deck-heading { font-size: 16px; }
   .hero-card { flex-direction: column; align-items: stretch; text-align: center; }
   .hero-left { flex-direction: column; text-align: center; }
@@ -724,4 +759,37 @@ main#app {
   .hero-badge { align-self: center; }
   .mode-toggle { display: flex; width: 100%; }
   .mode-btn { flex: 1; text-align: center; }
+
+  /* Zonder toetsenbord op het scherm (herken- en meerkeuze-modus, en de
+     rustperiode in typ-modus) voelt de studeerweergave op een telefoon al
+     snel "opgepropt bovenaan" met dode ruimte eronder. We laten #view-study
+     daarom de beschikbare hoogte vullen en de kaart verticaal centreren in
+     de ruimte die overblijft, met de antwoordknoppen dicht bij de duim
+     onderaan. dvh (dynamic viewport height) past zich ook netjes aan als
+     het toetsenbord in typ-modus open- of dichtklapt. */
+  #view-study {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 120px);
+    min-height: calc(100dvh - 120px);
+  }
+  .progress-track { margin-top: 10px; }
+  .box-badge-row { margin-top: 8px; }
+  .card-stage,
+  .type-card-stage {
+    flex: 1;
+    margin-top: 10px;
+    justify-content: center;
+  }
+  .flashcard { width: 100%; height: clamp(210px, 40vh, 320px); }
+  .answer-buttons .btn { flex: 1 1 0; justify-content: center; }
+  .choice-options { grid-template-columns: 1fr; }
+
+  /* De toetsenbord-sneltoetsen en de branding-footer zijn ruimteverspilling
+     tijdens het studeren op mobiel (geen fysiek toetsenbord, geen scrollruimte
+     te missen) — verbergen om de kaart meer ruimte te geven. */
+  body[data-view="study"] .footer,
+  body[data-view="study"] .kbd-hint {
+    display: none;
+  }
 }
