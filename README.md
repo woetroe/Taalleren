@@ -32,7 +32,7 @@ installeren of te bouwen: Vercel serveert `index.html` gewoon direct.
 
 ## De leermethode
 
-De studielogica is gebaseerd op drie principes uit onderzoek naar taal-/
+De studielogica is gebaseerd op principes uit onderzoek naar taal-/
 woordenschatverwerving, niet alleen op "kaartjes omdraaien":
 
 - **Spaced repetition (Leitner-boxen).** Elke kaart heeft een box (1–5). Een
@@ -50,6 +50,17 @@ woordenschatverwerving, niet alleen op "kaartjes omdraaien":
   ("Herkennen") is er een **"Actief typen"**-modus: je typt zelf het Italiaanse
   woord in plaats van het te herkennen. Zelf actief het antwoord ophalen
   beklijft aantoonbaar beter dan herlezen (Karpicke & Roediger, 2008).
+- **Mastery binnen de sessie + scaffolding.** Een fout beantwoord woord
+  verdwijnt niet uit de sessie: het komt een paar kaarten verderop terug,
+  net zo lang tot je het goed hebt. Vanaf de 3e poging op hetzelfde woord
+  schakelt de app automatisch naar **meerkeuze** (4 opties, dezelfde
+  testrichting als de actieve modus) — zo blijf je niet vastzitten op een
+  woord dat via vrij ophalen niet lukt, maar bouw je stap voor stap meer
+  steun in totdat het lukt. De Leitner-box wordt pas bijgewerkt zodra een
+  woord definitief lukt, en telt alleen als volle "correct" als dat al in de
+  allereerste poging lukte — een woord dat via herhaling/meerkeuze uiteindelijk
+  lukt, is voor de langere termijn nog niet "onder de knie" en komt morgen
+  eerder terug.
 - **Frequentie-gebaseerde woordenschat.** Het **"Kernwoorden ⭐"**-deck bevat
   de ~47 hoogfrequente/essentiële woorden (begroetingen, cijfers 1–10,
   vraagwoorden, voornaamwoorden, de belangrijkste werkwoorden) als aanbevolen
@@ -62,6 +73,36 @@ woordenschatverwerving, niet alleen op "kaartjes omdraaien":
 
 Deze uitleg staat ook, kort, in de app zelf onder "🧠 Waarom werkt dit zo?".
 
+## Fonetische hint
+
+Bij elk Italiaans woord staat een fonetische leeshulp, bv. **Ciao** *[tsjao]*.
+Dit is **geen officiële IPA-transcriptie**, maar een regelgebaseerde,
+vereenvoudigde uitspraakhulp (`phonetics.js`) die de bekende Italiaanse
+spellingsregels toepast — Italiaans is voor Nederlandstalige lezers namelijk
+grotendeels fonetisch regelmatig (heel anders dan bv. Engels of Frans), dus
+in plaats van 292 handmatige transcripties (foutgevoelig en niet te
+verifiëren zonder audio) worden regels als "c/g zacht vóór e/i", "gli", "gn",
+"sc(i/e)", "gh/ch" en de stomme "i" na een zachte c/g/sc (zoals in "ciao",
+"giorno") programmatisch toegepast. Dat werkt automatisch ook voor elk woord
+dat later aan `data.js` wordt toegevoegd.
+
+Bewuste, eerlijk benoemde beperkingen:
+- **Klemtoon** wordt alleen getoond waar het Italiaans zelf al een accent
+  heeft (bv. "perché"). Bij onbeklemtoonde spelling bestaat er geen
+  betrouwbare regel om de klemtoon te raden.
+- Een enkele **"z"** kan stemhebbend of stemloos zijn, afhankelijk van het
+  woord — niet uit de spelling af te leiden. We kiezen steeds de
+  benadering "ts".
+
+## Layout op mobiel
+
+De studeerweergave gebruikt op smalle schermen een flex-layout die de
+beschikbare hoogte vult (met `dvh` zodat het meebeweegt als het toetsenbord
+in typ-modus open- of dichtklapt), in plaats van bovenaan opgepropt te staan
+met dode ruimte eronder. De toetsenbord-sneltoetsen en de footer worden
+tijdens het studeren op mobiel verborgen (geen fysiek toetsenbord, geen
+ruimte te verspillen) en de kaarthoogte schaalt vloeiend mee met het scherm.
+
 ## Wat zit erin
 
 - **292 woorden/zinnen in 17 categorieën**: begroetingen, eten & drinken,
@@ -70,39 +111,47 @@ Deze uitleg staat ook, kort, in de app zelf onder "🧠 Waarom werkt dit zo?".
   winkelen & uit eten, en vraagwoorden & voornaamwoorden — plus de virtuele
   "Kernwoorden ⭐"- en "Alles door elkaar 🎲"-decks.
   Daarvan zijn 47 gemarkeerd als kernwoord (tier 1).
-- **Twee oefenmodi**: Herkennen (flip-kaart) en Actief typen (met tolerante
+- **Drie oefenvormen**: Herkennen (flip-kaart), Actief typen (met tolerante
   matching voor hoofdletters/spaties/leestekens, en meerdere geldige vormen
-  bij kaarten als "Il cugino / la cugina").
+  bij kaarten als "Il cugino / la cugina"), en automatische **meerkeuze**
+  vanaf de 3e poging op een woord.
+- **Fonetische hint** bij elk Italiaans woord (zie hierboven).
 - **Leitner spaced repetition** met zichtbare box-badge per kaart en due-
-  badges per categorie, plus een 🔔-teller in de topbar.
+  badges per categorie, plus een 🔔-teller in de topbar. Herhaling binnen een
+  sessie loopt door tot een woord écht gekend is.
 - **"Dagelijkse oefening"**-knop die automatisch due + nieuwe kaarten
   samenstelt en door elkaar husselt.
 - **"Herhaal moeilijke kaarten"** aan het einde van een sessie.
 - Voortgang, streak en gekozen oefenmodus blijven bewaard in `localStorage`
   (met automatische migratie van het oudere v1-formaat).
-- Volledig responsive (getest vanaf 390px breed) en met toetsenbordbediening.
+- Volledig responsive (getest vanaf 390px breed), met een layout die zich
+  aanpast aan de studeersituatie op mobiel, en met toetsenbordbediening.
 
 ## Bestanden
 
 - `index.html` — structuur van de app (start-, studeer- en samenvattingsscherm)
 - `style.css` — de Momkai-achtige visuele stijl
-- `script.js` — app-logica (Leitner-SRS, dagelijkse sessie, typ-modus, localStorage, confetti)
+- `script.js` — app-logica (Leitner-SRS, mastery-herhaling + meerkeuze, dagelijkse sessie, typ-modus, localStorage, confetti)
 - `data.js` — de woordenlijsten per categorie (incl. tier- en voorbeeldzin-velden)
+- `phonetics.js` — de regelgebaseerde fonetische-hint-generator
 - `test.js` — Playwright end-to-end tests (zie hieronder)
 - `vercel.json` — Vercel-config (schakelt install/build uit, zie "Deployen naar Vercel")
 
 Alles is losstaand en zonder framework, dus makkelijk uit te breiden: voeg een
 nieuwe categorie toe in `data.js` en hij verschijnt automatisch in het
-overzicht en in "Alles door elkaar". Zet `tier: 1` op een kaart om 'm aan
-"Kernwoorden" toe te voegen, en `ex: { it, nl }` voor een voorbeeldzin.
+overzicht, in "Alles door elkaar" én krijgt automatisch een fonetische hint.
+Zet `tier: 1` op een kaart om 'm aan "Kernwoorden" toe te voegen, en
+`ex: { it, nl }` voor een voorbeeldzin.
 
 ## Testen
 
-Er is een uitgebreide Playwright end-to-end testsuite (`test.js`) die de
-Leitner-boxlogica, de typ-modus (incl. meerdere geldige vormen en de
-noType-fallback), de samenstelling van de dagelijkse oefening, de
-v1→v2-datamigratie, en alle 17 categorieën los doorloopt — telkens met een
-check op afwezigheid van console-/paginafouten.
+Er is een uitgebreide Playwright end-to-end testsuite (`test.js`) die o.a. de
+Leitner-boxlogica, het herhaal-tot-goed-mechanisme binnen een sessie, het
+omslagpunt naar meerkeuze bij de 3e poging, de fonetische hints (incl. een
+fuzz-test over alle 292 woorden), de typ-modus (meerdere geldige vormen en
+de noType-fallback), de mobiele layout, de samenstelling van de dagelijkse
+oefening, de v1→v2-datamigratie, en alle 17 categorieën los doorloopt —
+telkens met een check op afwezigheid van console-/paginafouten.
 
 ```bash
 npm install        # installeert playwright (devDependency)
