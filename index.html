@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Parla! — Italiaans flashcards</title>
+  <meta name="description" content="Leer Italiaans woordjes met kleurrijke flashcards." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🇮🇹</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- decoratieve blobs op de achtergrond -->
+  <div class="blobs" aria-hidden="true">
+    <svg class="blob blob-1" viewBox="0 0 200 200"><path fill="#FFD23F" d="M45.5,-58.6C58.9,-49.8,69.8,-35.6,73.6,-19.7C77.4,-3.9,74,13.6,65.6,28.2C57.1,42.7,43.5,54.4,28,60.9C12.5,67.3,-4.8,68.5,-21.1,64.5C-37.5,60.5,-52.9,51.3,-62.4,37.6C-71.9,23.9,-75.5,5.7,-71.8,-10.7C-68.1,-27.1,-57,-41.7,-43.2,-50.7C-29.4,-59.7,-14.7,-63.1,1.2,-64.8C17,-66.5,34.1,-67.4,45.5,-58.6Z" transform="translate(100 100)" /></svg>
+    <svg class="blob blob-2" viewBox="0 0 200 200"><path fill="#FF8FB1" d="M42.2,-54.7C53.9,-46.5,61.6,-32.3,65.4,-16.9C69.2,-1.5,69.1,15.2,62.4,29C55.7,42.9,42.4,53.9,27.5,60.5C12.6,67,-3.9,69,-19.9,65.4C-35.9,61.7,-51.4,52.4,-60.4,38.9C-69.5,25.5,-72.1,7.9,-69.1,-8.4C-66.1,-24.7,-57.5,-39.7,-45.1,-48C-32.7,-56.4,-16.4,-58,0.3,-58.4C17,-58.8,30.5,-62.9,42.2,-54.7Z" transform="translate(100 100)" /></svg>
+    <svg class="blob blob-3" viewBox="0 0 200 200"><path fill="#60A5FA" d="M48.8,-62.9C62.5,-53.5,72.2,-38.1,75.9,-21.5C79.5,-4.9,77.1,12.8,69.3,27.7C61.5,42.6,48.4,54.7,33.4,61.9C18.4,69.1,1.5,71.4,-15.4,68.9C-32.3,66.4,-49.2,59.1,-60.6,46.5C-72,33.9,-77.9,16,-77.1,-1.5C-76.4,-19,-69,-38,-56.1,-48C-43.2,-58.1,-24.8,-59.3,-6.1,-57.8C12.6,-56.3,35.1,-72.3,48.8,-62.9Z" transform="translate(100 100)" /></svg>
+    <svg class="blob blob-4" viewBox="0 0 200 200"><path fill="#6EE7B7" d="M39.6,-51.2C50.9,-42.6,58.9,-29.6,62.7,-15.1C66.6,-0.6,66.3,15.3,59.7,28.6C53.1,41.9,40.2,52.5,25.7,58.6C11.2,64.6,-4.9,66.1,-20.4,62.3C-35.9,58.5,-50.8,49.4,-59.5,36.1C-68.2,22.8,-70.6,5.3,-67.4,-10.7C-64.2,-26.7,-55.4,-41.2,-43.1,-49.8C-30.7,-58.4,-15.4,-61,0.5,-61.7C16.4,-62.5,28.3,-59.8,39.6,-51.2Z" transform="translate(100 100)" /></svg>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-badge">🇮🇹</span>
+      <span class="brand-name">Parla<span class="brand-dot">!</span></span>
+    </div>
+    <div class="stats-pill" id="global-stats">
+      <span class="stat"><span class="stat-emoji">🔥</span><span id="streak-count">0</span></span>
+      <span class="stat"><span class="stat-emoji">⭐</span><span id="known-count">0</span>/<span id="total-count">0</span></span>
+    </div>
+  </header>
+
+  <main id="app">
+
+    <!-- HOME: deck overzicht -->
+    <section id="view-home" class="view">
+      <h1 class="page-title">Che lingua bella! <span class="wave">👋</span></h1>
+      <p class="page-sub">Kies een setje woordjes en begin met leren. Draai de kaart om, en zeg of je 'm kende!</p>
+
+      <div class="deck-grid" id="deck-grid"><!-- gevuld door script.js --></div>
+    </section>
+
+    <!-- STUDY: flashcard sessie -->
+    <section id="view-study" class="view hidden">
+      <div class="study-top">
+        <button class="btn-icon" id="btn-back-home" aria-label="Terug naar overzicht">←</button>
+        <div class="deck-heading">
+          <span id="study-emoji">👋</span>
+          <span id="study-deck-name">Begroetingen</span>
+        </div>
+        <div class="session-count"><span id="study-index">1</span>/<span id="study-total">10</span></div>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="study-progress"></div>
+      </div>
+
+      <div class="card-stage">
+        <button class="flashcard" id="flashcard" aria-live="polite">
+          <div class="flashcard-inner">
+            <div class="flashcard-face flashcard-front">
+              <span class="face-label">Italiaans</span>
+              <span class="face-word" id="card-front-word">Ciao</span>
+              <span class="tap-hint">tik om te draaien</span>
+            </div>
+            <div class="flashcard-face flashcard-back">
+              <span class="face-label">Nederlands</span>
+              <span class="face-word" id="card-back-word">Hoi / Doei</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="answer-buttons" id="answer-buttons">
+        <button class="btn btn-practice" id="btn-practice">
+          <span class="btn-emoji">🔁</span> Nog even oefenen
+        </button>
+        <button class="btn btn-know" id="btn-know">
+          <span class="btn-emoji">✅</span> Ken ik!
+        </button>
+      </div>
+
+      <p class="kbd-hint">Spatie = draaien · ← nog oefenen · → ken ik</p>
+    </section>
+
+    <!-- SUMMARY: einde van sessie -->
+    <section id="view-summary" class="view hidden">
+      <div class="summary-card">
+        <div class="summary-emoji" id="summary-emoji">🎉</div>
+        <h2 class="summary-title" id="summary-title">Fantastico!</h2>
+        <p class="summary-text" id="summary-text">Je kende 8 van de 10 woordjes.</p>
+
+        <div class="summary-bar-track">
+          <div class="summary-bar-fill" id="summary-bar-fill"></div>
+        </div>
+
+        <div class="summary-actions">
+          <button class="btn btn-outline" id="btn-retry-hard">
+            <span class="btn-emoji">🔁</span> Herhaal moeilijke kaarten
+          </button>
+          <button class="btn btn-outline" id="btn-restart-deck">
+            <span class="btn-emoji">🔄</span> Nog een keer, hele set
+          </button>
+          <button class="btn btn-know" id="btn-to-home">
+            <span class="btn-emoji">🏠</span> Terug naar overzicht
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Fatto con ❤️ — gemaakt om Italiaans te leren, één kaartje per keer.</p>
+  </footer>
+
+  <div id="confetti-layer" aria-hidden="true"></div>
+
+  <script src="data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
