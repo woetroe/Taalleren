@@ -94,6 +94,7 @@
             <div class="flashcard-face flashcard-front">
               <span class="face-label">Italiaans</span>
               <span class="face-word" id="card-front-word">Ciao</span>
+              <span class="phonetic-hint" id="card-phonetic">[tsjao]</span>
               <span class="tap-hint">tik om te draaien</span>
             </div>
             <div class="flashcard-face flashcard-back">
@@ -126,7 +127,19 @@
         <button class="btn btn-know type-check-btn" id="btn-type-check" data-stage="check">Controleer</button>
       </div>
 
-      <p class="kbd-hint">Herkennen: spatie = draaien · ← nog oefenen · → ken ik &nbsp;·&nbsp; Typen: Enter = controleren / volgende</p>
+      <!-- Meerkeuze-modus: vanaf de 3e poging op dit woord -->
+      <div class="type-card-stage hidden" id="choice-stage">
+        <div class="type-card">
+          <span class="face-label" id="choice-label">Italiaans</span>
+          <span class="face-word" id="choice-prompt">Ciao</span>
+          <span class="phonetic-hint" id="choice-phonetic"></span>
+        </div>
+        <div class="choice-options" id="choice-options"><!-- 4 opties, gevuld door script.js --></div>
+        <p class="type-feedback" id="choice-feedback"></p>
+        <button class="btn btn-know type-check-btn hidden" id="btn-choice-next">Volgende →</button>
+      </div>
+
+      <p class="kbd-hint" id="kbd-hint">Herkennen: spatie = draaien · ← nog oefenen · → ken ik &nbsp;·&nbsp; Typen: Enter = controleren / volgende</p>
     </section>
 
     <!-- SUMMARY: einde van sessie -->
@@ -163,6 +176,7 @@
   <div id="confetti-layer" aria-hidden="true"></div>
 
   <script src="data.js"></script>
+  <script src="phonetics.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
