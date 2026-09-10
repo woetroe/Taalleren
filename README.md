@@ -94,6 +94,11 @@ Bewuste, eerlijk benoemde beperkingen:
   woord — niet uit de spelling af te leiden. We kiezen steeds de
   benadering "ts".
 
+De hint staat niet alleen even op de voorkant van een kaart, maar komt ook
+terug op het moment dat je je antwoord checkt: op de achterkant van de
+flip-kaart (samen met het Italiaanse woord), in de feedback na het typen of
+na een meerkeuzevraag, en op de reveal-kaart (zie hieronder).
+
 ## Layout op mobiel
 
 De studeerweergave gebruikt op smalle schermen een flex-layout die de
@@ -102,6 +107,35 @@ in typ-modus open- of dichtklapt), in plaats van bovenaan opgepropt te staan
 met dode ruimte eronder. De toetsenbord-sneltoetsen en de footer worden
 tijdens het studeren op mobiel verborgen (geen fysiek toetsenbord, geen
 ruimte te verspillen) en de kaarthoogte schaalt vloeiend mee met het scherm.
+
+Het typveld in "Actief typen" wordt na het controleren niet meer
+uitgeschakeld of geblurd — dat joeg het schermtoetsenbord vroeger elke kaart
+open en weer dicht ("whiplash"). Het veld blijft nu gewoon in focus zolang je
+in typ-modus blijft, en klapt pas dicht zodra een kaart écht geen typveld
+nodig heeft (reveal- of meerkeuzekaarten).
+
+## Overhoren i.p.v. flashcards voor niet-typbare woorden
+
+In **Actief typen** vallen woorden met meerdere/onvolledige vormen (bv. "Il
+cugino / la cugina") niet meer terug op de 3D-flip-flashcard van de
+herken-modus — dat voelde inconsistent tussen kaarten binnen dezelfde
+sessie. In plaats daarvan gebruiken ze de **reveal-kaart**: dezelfde
+kaartstijl als typen/meerkeuze, met een "Toon antwoord"-knop in plaats van
+een flip-animatie, en daarna dezelfde "Ken ik" / "Nog even oefenen"-knoppen.
+
+## Voortgang & geheugen
+
+Voortgang, streak en gekozen oefenmodus staan in `localStorage`, per browser
+op dit device — er is **geen automatische sync tussen devices** (telefoon en
+laptop houden dus elk hun eigen voortgang bij). Wat wél is gehard:
+- Corrupte of onleesbare opslag (bv. een afgebroken write) wordt nooit
+  stilletjes gewist: de rauwe data gaat opzij onder een `-corrupt-backup`-
+  sleutel (terug te vinden in de devtools) en de app start gewoon met een
+  lege state in plaats van te crashen.
+- Als opslaan zelf mislukt (volle opslag, of `localStorage` niet
+  beschikbaar zoals in sommige privénavigatie-modi), blijft de app gewoon
+  werken met de in-memory state — alleen het bewaren naar de volgende keer
+  lukt dan niet, gemeld via een console-waarschuwing i.p.v. een crash.
 
 ## Wat zit erin
 
@@ -112,10 +146,11 @@ ruimte te verspillen) en de kaarthoogte schaalt vloeiend mee met het scherm.
   "Kernwoorden ⭐"- en "Alles door elkaar 🎲"-decks.
   Daarvan zijn 47 gemarkeerd als kernwoord (tier 1).
 - **Drie oefenvormen**: Herkennen (flip-kaart), Actief typen (met tolerante
-  matching voor hoofdletters/spaties/leestekens, en meerdere geldige vormen
-  bij kaarten als "Il cugino / la cugina"), en automatische **meerkeuze**
-  vanaf de 3e poging op een woord.
-- **Fonetische hint** bij elk Italiaans woord (zie hierboven).
+  matching voor hoofdletters/spaties/leestekens, en een reveal-kaart i.p.v.
+  typen bij kaarten met meerdere vormen als "Il cugino / la cugina"), en
+  automatische **meerkeuze** vanaf de 3e poging op een woord.
+- **Fonetische hint** bij elk Italiaans woord, ook bij het geven van je
+  antwoord (zie hierboven).
 - **Leitner spaced repetition** met zichtbare box-badge per kaart en due-
   badges per categorie, plus een 🔔-teller in de topbar. Herhaling binnen een
   sessie loopt door tot een woord écht gekend is.
@@ -148,10 +183,14 @@ Zet `tier: 1` op een kaart om 'm aan "Kernwoorden" toe te voegen, en
 Er is een uitgebreide Playwright end-to-end testsuite (`test.js`) die o.a. de
 Leitner-boxlogica, het herhaal-tot-goed-mechanisme binnen een sessie, het
 omslagpunt naar meerkeuze bij de 3e poging, de fonetische hints (incl. een
-fuzz-test over alle 292 woorden), de typ-modus (meerdere geldige vormen en
-de noType-fallback), de mobiele layout, de samenstelling van de dagelijkse
-oefening, de v1→v2-datamigratie, en alle 17 categorieën los doorloopt —
-telkens met een check op afwezigheid van console-/paginafouten.
+fuzz-test over alle 292 woorden en de zichtbaarheid ervan bij het geven van
+een antwoord — flip-kaart-achterkant, typ-feedback, meerkeuze-feedback en de
+reveal-kaart), de typ-modus (meerdere geldige vormen, geen toetsenbord-
+whiplash tussen kaarten, en de reveal-kaart-fallback i.p.v. de flip-kaart),
+de mobiele layout, de samenstelling van de dagelijkse oefening, de
+v1→v2-datamigratie, robuustheid bij corrupte `localStorage`-data, en alle 17
+categorieën los doorloopt — telkens met een check op afwezigheid van
+console-/paginafouten.
 
 ```bash
 npm install        # installeert playwright (devDependency)
