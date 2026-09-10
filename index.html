@@ -29,6 +29,7 @@
     <div class="stats-pill" id="global-stats">
       <span class="stat"><span class="stat-emoji">🔥</span><span id="streak-count">0</span></span>
       <span class="stat"><span class="stat-emoji">⭐</span><span id="known-count">0</span>/<span id="total-count">0</span></span>
+      <span class="stat"><span class="stat-emoji">🔔</span><span id="due-count">0</span></span>
     </div>
   </header>
 
@@ -38,6 +39,31 @@
     <section id="view-home" class="view">
       <h1 class="page-title">Che lingua bella! <span class="wave">👋</span></h1>
       <p class="page-sub">Kies een setje woordjes en begin met leren. Draai de kaart om, en zeg of je 'm kende!</p>
+
+      <button class="hero-card" id="btn-daily-session">
+        <div class="hero-left">
+          <span class="hero-emoji">📅</span>
+          <div>
+            <span class="hero-title">Dagelijkse oefening</span>
+            <span class="hero-sub" id="daily-sub">Herhaalt wat je bijna vergeet + een paar nieuwe woorden, lekker door elkaar</span>
+          </div>
+        </div>
+        <span class="hero-badge" id="daily-due-badge">0</span>
+      </button>
+
+      <details class="info-card">
+        <summary>🧠 Waarom werkt dit zo?</summary>
+        <ul>
+          <li><strong>Spreiding:</strong> kaarten komen net op tijd terug, vlak voordat je ze zou vergeten — dat beklijft beter dan alles in één keer blokken.</li>
+          <li><strong>Door elkaar husselen:</strong> categorieën afwisselen (interleaving) helpt je écht onderscheid maken, in plaats van op volgorde te gokken.</li>
+          <li><strong>Actief ophalen:</strong> zelf het antwoord bedenken — of typen — werkt beter dan nog een keer lezen. Vandaar de typ-modus hieronder.</li>
+        </ul>
+      </details>
+
+      <div class="mode-toggle" role="group" aria-label="Oefenmodus">
+        <button class="mode-btn active" data-mode="recognize">👀 Herkennen</button>
+        <button class="mode-btn" data-mode="type">⌨️ Actief typen</button>
+      </div>
 
       <div class="deck-grid" id="deck-grid"><!-- gevuld door script.js --></div>
     </section>
@@ -57,7 +83,12 @@
         <div class="progress-fill" id="study-progress"></div>
       </div>
 
-      <div class="card-stage">
+      <div class="box-badge-row">
+        <span class="box-badge" id="box-badge">🆕 Nieuw</span>
+      </div>
+
+      <!-- Herken-modus: flip-kaart -->
+      <div class="card-stage" id="recognize-stage">
         <button class="flashcard" id="flashcard" aria-live="polite">
           <div class="flashcard-inner">
             <div class="flashcard-face flashcard-front">
@@ -68,6 +99,7 @@
             <div class="flashcard-face flashcard-back">
               <span class="face-label">Nederlands</span>
               <span class="face-word" id="card-back-word">Hoi / Doei</span>
+              <span class="face-example hidden" id="card-example"></span>
             </div>
           </div>
         </button>
@@ -82,7 +114,19 @@
         </button>
       </div>
 
-      <p class="kbd-hint">Spatie = draaien · ← nog oefenen · → ken ik</p>
+      <!-- Typ-modus: actieve recall -->
+      <div class="type-card-stage hidden" id="type-stage">
+        <div class="type-card">
+          <span class="face-label">Nederlands</span>
+          <span class="face-word" id="type-prompt">Hoi / Doei</span>
+        </div>
+        <label class="type-input-label" for="type-input">Typ het Italiaans:</label>
+        <input class="type-input" id="type-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="…" />
+        <p class="type-feedback" id="type-feedback"></p>
+        <button class="btn btn-know type-check-btn" id="btn-type-check" data-stage="check">Controleer</button>
+      </div>
+
+      <p class="kbd-hint">Herkennen: spatie = draaien · ← nog oefenen · → ken ik &nbsp;·&nbsp; Typen: Enter = controleren / volgende</p>
     </section>
 
     <!-- SUMMARY: einde van sessie -->

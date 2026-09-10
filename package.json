@@ -1,0 +1,13 @@
+{
+  "name": "parla-italian-flashcards",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Italiaans flashcards-app (spaced repetition + actief typen).",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1"
+  },
+  "license": "ISC"
+}
