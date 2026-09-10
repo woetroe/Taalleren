@@ -97,13 +97,39 @@ function loadState() {
     }
     return emptyState();
   } catch (e) {
+    // Corrupte/onleesbare opslag (bv. een afgebroken write, of data uit een
+    // toekomstige/andere versie) mag nooit stilletjes je hele voortgang
+    // wissen. We zetten de rauwe inhoud opzij onder een backup-sleutel
+    // (terug te vinden in devtools) en starten met een lege state in
+    // plaats van te crashen.
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) localStorage.setItem(STORAGE_KEY + '-corrupt-backup', raw);
+    } catch (e2) { /* opslag zelf niet beschikbaar/vol — dan is er niets meer te backuppen */ }
+    console.warn(
+      `Parla!: kon opgeslagen voortgang niet lezen, start met een lege state. ` +
+      `De rauwe data (indien nog aanwezig) staat onder "${STORAGE_KEY}-corrupt-backup".`,
+      e
+    );
     return emptyState();
   }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    // Bv. QuotaExceededError, of localStorage helemaal niet beschikbaar
+    // (sommige browsers in privénavigatie). De app blijft gewoon werken met
+    // de in-memory state — alleen het bewaren naar de volgende keer lukt
+    // dan niet, en dat melden we in de console in plaats van te crashen.
+    console.warn('Parla!: kon voortgang niet opslaan (opslag vol of niet beschikbaar).', e);
+  }
 }
+
+// Let op: localStorage is per browser/device — er is geen automatische sync
+// tussen bv. je telefoon en laptop. Gebruik je de app op meerdere devices,
+// dan houdt elk device zijn eigen voortgang bij.
 
 const state = loadState();
 
@@ -253,6 +279,7 @@ const kbdHintEl = document.getElementById('kbd-hint');
 const flashcardEl = document.getElementById('flashcard');
 const cardFrontWordEl = document.getElementById('card-front-word');
 const cardPhoneticEl = document.getElementById('card-phonetic');
+const cardBackSourceEl = document.getElementById('card-back-source');
 const cardBackWordEl = document.getElementById('card-back-word');
 const cardExampleEl = document.getElementById('card-example');
 
@@ -262,6 +289,14 @@ const typePromptEl = document.getElementById('type-prompt');
 const typeInputEl = document.getElementById('type-input');
 const typeFeedbackEl = document.getElementById('type-feedback');
 const btnTypeCheck = document.getElementById('btn-type-check');
+
+const revealStage = document.getElementById('reveal-stage');
+const revealPromptEl = document.getElementById('reveal-prompt');
+const btnRevealShow = document.getElementById('btn-reveal-show');
+const revealAnswerBox = document.getElementById('reveal-answer-box');
+const revealAnswerWordEl = document.getElementById('reveal-answer-word');
+const revealPhoneticEl = document.getElementById('reveal-phonetic');
+const revealExampleEl = document.getElementById('reveal-example');
 
 const choiceStage = document.getElementById('choice-stage');
 const choiceLabelEl = document.getElementById('choice-label');
@@ -425,13 +460,17 @@ function currentEntry() {
 }
 
 /** In typ-modus vallen kaarten met meerdere/onvolledige vormen (noType) terug
- *  op de herken-weergave. Vanaf CHOICE_AFTER_MISSES missers op hetzelfde
- *  woord (binnen deze sessie) schakelt elke modus over naar meerkeuze. */
+ *  op de "reveal"-weergave (zelfde kaartstijl als typen, geen 3D-flip) in
+ *  plaats van de herken-modus flip-kaart — zo blijft typ-modus overal
+ *  hetzelfde ogen, ook voor woorden die je niet kunt typen. Vanaf
+ *  CHOICE_AFTER_MISSES missers op hetzelfde woord (binnen deze sessie)
+ *  schakelt elke modus over naar meerkeuze. */
 function activeStageForCurrentCard() {
   const entry = currentEntry();
   if (!entry) return null;
   if (entry.misses >= CHOICE_AFTER_MISSES) return 'choice';
-  return state.mode === 'type' && !entry.card.noType ? 'type' : 'recognize';
+  if (state.mode === 'type') return entry.card.noType ? 'reveal' : 'type';
+  return 'recognize';
 }
 
 /** Verwerkt het resultaat van één poging op de huidige (voorste) kaart.
@@ -479,25 +518,38 @@ function renderCurrentCard() {
   const stage = activeStageForCurrentCard();
   recognizeStage.classList.toggle('hidden', stage !== 'recognize');
   typeStage.classList.toggle('hidden', stage !== 'type');
+  revealStage.classList.toggle('hidden', stage !== 'reveal');
   choiceStage.classList.toggle('hidden', stage !== 'choice');
+  // De reveal-kaart toont "answer-buttons" pas na "Toon antwoord" (zie
+  // showRevealAnswer) — bij een nieuwe kaart moet 'ie dus weer verborgen zijn.
   answerButtons.classList.toggle('hidden', stage !== 'recognize');
+
+  // Toetsenbord alleen laten zakken als de nieuwe kaart écht geen typveld
+  // heeft — anders klapt het na élke kaart open en dicht ("whiplash").
+  if (stage !== 'type') typeInputEl.blur();
 
   const hints = {
     recognize: 'Spatie = draaien · ← nog oefenen · → ken ik',
     type: 'Enter = controleren / volgende',
+    reveal: 'Toon het antwoord en beoordeel jezelf',
     choice: 'Kies het juiste antwoord'
   };
   kbdHintEl.textContent = hints[stage] || '';
 
   if (stage === 'recognize') renderRecognizeStage(card);
   else if (stage === 'type') renderTypeStage(card);
+  else if (stage === 'reveal') renderRevealStage(card);
   else if (stage === 'choice') renderChoiceStage(card);
 }
 
 function renderRecognizeStage(card) {
   flashcardEl.classList.remove('flipped');
   cardFrontWordEl.textContent = card.it;
-  cardPhoneticEl.textContent = `[${italianPhoneticHint(card.it)}]`;
+  const hint = `[${italianPhoneticHint(card.it)}]`;
+  cardPhoneticEl.textContent = hint;
+  // Op de achterkant (het moment dat je je antwoord checkt) herhalen we het
+  // Italiaanse woord + fonetiek — op de voorkant zie je 'm maar heel even.
+  cardBackSourceEl.textContent = `${card.it} · ${hint}`;
   cardBackWordEl.textContent = card.nl;
   cardExampleEl.textContent = card.ex ? `„${card.ex.it}” — ${card.ex.nl}` : '';
   cardExampleEl.classList.toggle('hidden', !card.ex);
@@ -508,10 +560,30 @@ function renderTypeStage(card) {
   typeInputEl.value = '';
   typeFeedbackEl.textContent = '';
   typeFeedbackEl.className = 'type-feedback';
-  typeInputEl.disabled = false;
   btnTypeCheck.textContent = 'Controleer';
   btnTypeCheck.dataset.stage = 'check';
   typeInputEl.focus();
+}
+
+/** Reveal-kaart: voor typ-modus-kaarten die niet betrouwbaar te typen zijn
+ *  (meerdere/onvolledige vormen). Zelfde kaartstijl als typen/meerkeuze
+ *  (geen 3D-flip) — je probeert het antwoord te herinneren, toont 'm dan
+ *  zelf, en beoordeelt jezelf net als bij de herken-modus. */
+function renderRevealStage(card) {
+  revealPromptEl.textContent = card.nl;
+  revealAnswerWordEl.textContent = card.it;
+  revealPhoneticEl.textContent = `[${italianPhoneticHint(card.it)}]`;
+  revealExampleEl.textContent = card.ex ? `„${card.ex.it}” — ${card.ex.nl}` : '';
+  revealExampleEl.classList.toggle('hidden', !card.ex);
+  revealAnswerBox.classList.add('hidden');
+  btnRevealShow.classList.remove('hidden');
+  answerButtons.classList.add('hidden');
+}
+
+function showRevealAnswer() {
+  revealAnswerBox.classList.remove('hidden');
+  btnRevealShow.classList.add('hidden');
+  answerButtons.classList.remove('hidden');
 }
 
 /** Richting van de meerkeuzevraag volgt de actieve oefenmodus: in
@@ -536,7 +608,7 @@ function renderChoiceStage(card) {
     btn.type = 'button';
     btn.className = 'choice-option';
     btn.textContent = optionText;
-    btn.addEventListener('click', () => handleChoiceAnswer(optionText, correctText));
+    btn.addEventListener('click', () => handleChoiceAnswer(optionText, correctText, card));
     choiceOptionsEl.appendChild(btn);
   });
   choiceFeedbackEl.textContent = '';
@@ -544,14 +616,17 @@ function renderChoiceStage(card) {
   btnChoiceNext.classList.add('hidden');
 }
 
-function handleChoiceAnswer(chosenText, correctText) {
+function handleChoiceAnswer(chosenText, correctText, card) {
   const correct = chosenText === correctText;
   [...choiceOptionsEl.children].forEach(btn => {
     btn.disabled = true;
     if (btn.textContent === correctText) btn.classList.add('correct');
     else if (btn.textContent === chosenText) btn.classList.add('incorrect');
   });
-  choiceFeedbackEl.textContent = correct ? '✅ Corretto!' : `❌ Het juiste antwoord was: ${correctText}`;
+  // Als het juiste antwoord het Italiaanse woord zelf is (typ-modus-richting),
+  // tonen we ook meteen de fonetiek — niet alleen op de prompt hierboven.
+  const hint = correctText === card.it ? ` [${italianPhoneticHint(card.it)}]` : '';
+  choiceFeedbackEl.textContent = (correct ? '✅ Corretto!' : `❌ Het juiste antwoord was: ${correctText}`) + hint;
   choiceFeedbackEl.className = 'type-feedback ' + (correct ? 'correct' : 'incorrect');
 
   resolveAttempt(correct);
@@ -573,13 +648,18 @@ function submitTypedAnswer() {
   if (btnTypeCheck.dataset.stage === 'check') {
     const entry = currentEntry();
     const correct = checkTypedAnswer(entry.card, typeInputEl.value);
-    typeInputEl.disabled = true;
-    typeFeedbackEl.textContent = correct ? '✅ Corretto!' : `❌ Was: ${entry.card.it}`;
+    const hint = `[${italianPhoneticHint(entry.card.it)}]`;
+    typeFeedbackEl.textContent = correct ? `✅ Corretto! ${hint}` : `❌ Was: ${entry.card.it} ${hint}`;
     typeFeedbackEl.className = 'type-feedback ' + (correct ? 'correct' : 'incorrect');
 
     resolveAttempt(correct);
     btnTypeCheck.textContent = session.pending.length === 0 ? 'Klaar' : 'Volgende →';
     btnTypeCheck.dataset.stage = 'next';
+    // Bewust NIET het invoerveld disablen/blurren hier: dat joeg het
+    // toetsenbord op mobiel elke keer open én dicht tussen twee kaarten in
+    // typ-modus. Het veld blijft nu gewoon actief en in focus; de volgende
+    // kaart reset de waarde toch (renderTypeStage), en pas als de kaart
+    // écht geen typveld nodig heeft, laat renderCurrentCard 'm zakken.
   } else {
     advance();
   }
@@ -645,11 +725,19 @@ btnRetryHard.addEventListener('click', () => startSession(session.deck, session.
 btnDailySession.addEventListener('click', startDailySession);
 
 btnTypeCheck.addEventListener('click', submitTypedAnswer);
+// Klikken/tikken op een <button> verplaatst de focus daar standaard naartoe
+// (weg van #type-input) — op mobiel blurt dat het typveld en klapt het
+// schermtoetsenbord dicht, om bij de volgende kaart weer open te klappen.
+// preventDefault() op mousedown voorkomt die focusverschuiving (de click
+// zelf blijft gewoon werken), zodat het toetsenbord tijdens een hele
+// reeks typ-kaarten gewoon open blijft staan.
+btnTypeCheck.addEventListener('mousedown', (e) => e.preventDefault());
 typeInputEl.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); submitTypedAnswer(); }
 });
 
 btnChoiceNext.addEventListener('click', advance);
+btnRevealShow.addEventListener('click', showRevealAnswer);
 
 modeButtons.forEach(btn => {
   btn.addEventListener('click', () => {
