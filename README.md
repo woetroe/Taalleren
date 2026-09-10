@@ -62,11 +62,11 @@ woordenschatverwerving, niet alleen op "kaartjes omdraaien":
   lukt, is voor de langere termijn nog niet "onder de knie" en komt morgen
   eerder terug.
 - **Frequentie-gebaseerde woordenschat.** Het **"Kernwoorden ⭐"**-deck bevat
-  de ~47 hoogfrequente/essentiële woorden (begroetingen, cijfers 1–10,
-  vraagwoorden, voornaamwoorden, de belangrijkste werkwoorden) als aanbevolen
-  startpunt — in lijn met Nation's onderzoek naar woordfrequentie: een kleine
-  kern van de meest voorkomende woorden dekt verreweg het grootste deel van
-  dagelijkse taal.
+  de ~57 hoogfrequente/essentiële woorden (begroetingen, cijfers 1–10,
+  vraagwoorden, voornaamwoorden, de belangrijkste werkwoorden én hun meest
+  gebruikte vervoeging) als aanbevolen startpunt — in lijn met Nation's
+  onderzoek naar woordfrequentie: een kleine kern van de meest voorkomende
+  woorden dekt verreweg het grootste deel van dagelijkse taal.
 - **Elaborative encoding.** Kernwoorden en het werkwoorden-deck hebben een
   voorbeeldzin (Italiaans + Nederlands) op de achterkant van de kaart, voor
   context in plaats van geïsoleerde woordparen.
@@ -80,7 +80,7 @@ Dit is **geen officiële IPA-transcriptie**, maar een regelgebaseerde,
 vereenvoudigde uitspraakhulp (`phonetics.js`) die de bekende Italiaanse
 spellingsregels toepast — Italiaans is voor Nederlandstalige lezers namelijk
 grotendeels fonetisch regelmatig (heel anders dan bv. Engels of Frans), dus
-in plaats van 292 handmatige transcripties (foutgevoelig en niet te
+in plaats van 305 handmatige transcripties (foutgevoelig en niet te
 verifiëren zonder audio) worden regels als "c/g zacht vóór e/i", "gli", "gn",
 "sc(i/e)", "gh/ch" en de stomme "i" na een zachte c/g/sc (zoals in "ciao",
 "giorno") programmatisch toegepast. Dat werkt automatisch ook voor elk woord
@@ -93,6 +93,13 @@ Bewuste, eerlijk benoemde beperkingen:
 - Een enkele **"z"** kan stemhebbend of stemloos zijn, afhankelijk van het
   woord — niet uit de spelling af te leiden. We kiezen steeds de
   benadering "ts".
+
+Leestekens (".", "?", "!", ",", ";", ":") worden vóór het toepassen van de
+regels uit de tekst gefilterd — anders belandde bv. de "..." van
+sjabloonkaarten als "Mi chiamo..." letterlijk in de hint. Verdubbelde
+"cc"/"gg" vlak vóór een zachte e/i (zoals in "faccio", "oggi") krijgen ook
+een eigen regel, zodat ze niet per ongeluk als hard + zacht na elkaar
+klinken (bv. "fattsjo" i.p.v. het onjuiste "faktsjo").
 
 De hint staat niet alleen even op de voorkant van een kaart, maar komt ook
 terug op het moment dat je je antwoord checkt: op de achterkant van de
@@ -116,12 +123,34 @@ nodig heeft (reveal- of meerkeuzekaarten).
 
 ## Overhoren i.p.v. flashcards voor niet-typbare woorden
 
-In **Actief typen** vallen woorden met meerdere/onvolledige vormen (bv. "Il
-cugino / la cugina") niet meer terug op de 3D-flip-flashcard van de
+In **Actief typen** vallen woorden met een onvolledige vorm (bv. de
+sjabloonzin "Mi chiamo...") niet meer terug op de 3D-flip-flashcard van de
 herken-modus — dat voelde inconsistent tussen kaarten binnen dezelfde
 sessie. In plaats daarvan gebruiken ze de **reveal-kaart**: dezelfde
 kaartstijl als typen/meerkeuze, met een "Toon antwoord"-knop in plaats van
 een flip-animatie, en daarna dezelfde "Ken ik" / "Nog even oefenen"-knoppen.
+
+## Geen samengevoegde woordparen
+
+Woordparen die eigenlijk twee losse Italiaanse woorden zijn (bv. mannelijk/
+vrouwelijk: "il cugino"/"la cugina", of twee synoniemen: "cosa"/"che cosa")
+staan niet langer samen op één kaart met een "/" ertussen (zoals voorheen
+"Lui / Lei" → "Hij / Zij"). Dat dwong je bij het typen of bij een dubbelzinnig
+"Hij / Zij"-promptje na te denken over welke van de twee bedoeld werd, of om
+zelf een "/" te typen. Elk zo'n woord is nu een eigen kaart met een
+eenduidig antwoord. Vertalingen waarbij hetzelfde Italiaanse woord gewoon
+meerdere Nederlandse betekenissen heeft (bv. "Ciao" = "Hoi / Doei") blijven
+wél als "/" op de kaart staan — daar is niets te splitsen, het is écht één
+Italiaans woord.
+
+## Vervoegingen naast de hele werkwoorden
+
+Naast de infinitief (bv. "Essere" → "Zijn") staat nu ook de meest gebruikte
+vervoeging — de ik-vorm — als eigen kaart in het werkwoorden-deck (bv.
+"Sono" → "Ik ben (vervoeging van 'essere')"), voor de zeven kernwerkwoorden
+plus "piacere" ("mi piace"). Die vorm gebruik je in de praktijk veel vaker
+dan de infinitief zelf, en hij komt vanzelf "af en toe" tussen de andere
+kaarten door in elke sessie — er is geen aparte modus voor nodig.
 
 ## Voortgang & geheugen
 
@@ -139,16 +168,16 @@ laptop houden dus elk hun eigen voortgang bij). Wat wél is gehard:
 
 ## Wat zit erin
 
-- **292 woorden/zinnen in 17 categorieën**: begroetingen, eten & drinken,
+- **305 woorden/zinnen in 17 categorieën**: begroetingen, eten & drinken,
   getallen, reizen, familie, tijd & dagen, maanden & seizoenen, kleuren,
   basiswoorden, huis, gevoelens, werkwoorden, lichaam, kleding, weer,
   winkelen & uit eten, en vraagwoorden & voornaamwoorden — plus de virtuele
   "Kernwoorden ⭐"- en "Alles door elkaar 🎲"-decks.
-  Daarvan zijn 47 gemarkeerd als kernwoord (tier 1).
+  Daarvan zijn 57 gemarkeerd als kernwoord (tier 1).
 - **Drie oefenvormen**: Herkennen (flip-kaart), Actief typen (met tolerante
   matching voor hoofdletters/spaties/leestekens, en een reveal-kaart i.p.v.
-  typen bij kaarten met meerdere vormen als "Il cugino / la cugina"), en
-  automatische **meerkeuze** vanaf de 3e poging op een woord.
+  typen bij sjabloonkaarten met een onvolledige vorm zoals "Mi chiamo..."),
+  en automatische **meerkeuze** vanaf de 3e poging op een woord.
 - **Fonetische hint** bij elk Italiaans woord, ook bij het geven van je
   antwoord (zie hierboven).
 - **Leitner spaced repetition** met zichtbare box-badge per kaart en due-
@@ -183,7 +212,7 @@ Zet `tier: 1` op een kaart om 'm aan "Kernwoorden" toe te voegen, en
 Er is een uitgebreide Playwright end-to-end testsuite (`test.js`) die o.a. de
 Leitner-boxlogica, het herhaal-tot-goed-mechanisme binnen een sessie, het
 omslagpunt naar meerkeuze bij de 3e poging, de fonetische hints (incl. een
-fuzz-test over alle 292 woorden en de zichtbaarheid ervan bij het geven van
+fuzz-test over alle 305 woorden en de zichtbaarheid ervan bij het geven van
 een antwoord — flip-kaart-achterkant, typ-feedback, meerkeuze-feedback en de
 reveal-kaart), de typ-modus (meerdere geldige vormen, geen toetsenbord-
 whiplash tussen kaarten, en de reveal-kaart-fallback i.p.v. de flip-kaart),
