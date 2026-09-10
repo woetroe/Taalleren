@@ -99,19 +99,11 @@
             </div>
             <div class="flashcard-face flashcard-back">
               <span class="face-label">Nederlands</span>
+              <span class="back-source-hint" id="card-back-source">Ciao · [tsjao]</span>
               <span class="face-word" id="card-back-word">Hoi / Doei</span>
               <span class="face-example hidden" id="card-example"></span>
             </div>
           </div>
-        </button>
-      </div>
-
-      <div class="answer-buttons" id="answer-buttons">
-        <button class="btn btn-practice" id="btn-practice">
-          <span class="btn-emoji">🔁</span> Nog even oefenen
-        </button>
-        <button class="btn btn-know" id="btn-know">
-          <span class="btn-emoji">✅</span> Ken ik!
         </button>
       </div>
 
@@ -127,6 +119,22 @@
         <button class="btn btn-know type-check-btn" id="btn-type-check" data-stage="check">Controleer</button>
       </div>
 
+      <!-- Typ-modus, woorden met meerdere vormen (noType): geen 3D-flip-kaart,
+           gewoon overhoren in dezelfde kaartstijl als typen/meerkeuze. -->
+      <div class="type-card-stage hidden" id="reveal-stage">
+        <div class="type-card">
+          <span class="face-label">Nederlands</span>
+          <span class="face-word" id="reveal-prompt">Hoi / Doei</span>
+        </div>
+        <button class="btn btn-know type-check-btn" id="btn-reveal-show">Toon antwoord</button>
+        <div class="type-card reveal-answer hidden" id="reveal-answer-box">
+          <span class="face-label">Italiaans</span>
+          <span class="face-word" id="reveal-answer-word">Ciao</span>
+          <span class="phonetic-hint" id="reveal-phonetic">[tsjao]</span>
+          <span class="face-example hidden" id="reveal-example"></span>
+        </div>
+      </div>
+
       <!-- Meerkeuze-modus: vanaf de 3e poging op dit woord -->
       <div class="type-card-stage hidden" id="choice-stage">
         <div class="type-card">
@@ -137,6 +145,18 @@
         <div class="choice-options" id="choice-options"><!-- 4 opties, gevuld door script.js --></div>
         <p class="type-feedback" id="choice-feedback"></p>
         <button class="btn btn-know type-check-btn hidden" id="btn-choice-next">Volgende →</button>
+      </div>
+
+      <!-- Antwoordknoppen: gedeeld door de herken- en reveal-kaart, staat
+           daarom ná alle kaartvarianten zodat 'ie altijd direct onder de
+           actieve kaart verschijnt. -->
+      <div class="answer-buttons hidden" id="answer-buttons">
+        <button class="btn btn-practice" id="btn-practice">
+          <span class="btn-emoji">🔁</span> Nog even oefenen
+        </button>
+        <button class="btn btn-know" id="btn-know">
+          <span class="btn-emoji">✅</span> Ken ik!
+        </button>
       </div>
 
       <p class="kbd-hint" id="kbd-hint">Herkennen: spatie = draaien · ← nog oefenen · → ken ik &nbsp;·&nbsp; Typen: Enter = controleren / volgende</p>
