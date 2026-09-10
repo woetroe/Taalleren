@@ -158,11 +158,14 @@ const DECKS = [
       { it: 'La nonna', nl: 'De oma' },
       { it: 'Il marito', nl: 'De echtgenoot' },
       { it: 'La moglie', nl: 'De echtgenote' },
-      { it: "L'amico / l'amica", nl: 'De vriend / vriendin' },
-      { it: 'Il cugino / la cugina', nl: 'De neef / nicht' },
+      { it: "L'amico", nl: 'De vriend' },
+      { it: "L'amica", nl: 'De vriendin' },
+      { it: 'Il cugino', nl: 'De neef' },
+      { it: 'La cugina', nl: 'De nicht' },
       { it: 'Lo zio', nl: 'De oom' },
       { it: 'La zia', nl: 'De tante' },
-      { it: 'Il bambino / la bambina', nl: 'Het kind (jongen/meisje)' }
+      { it: 'Il bambino', nl: 'Het jongetje' },
+      { it: 'La bambina', nl: 'Het meisje' }
     ]
   },
   {
@@ -320,12 +323,19 @@ const DECKS = [
     color: '#A3E635',
     cards: [
       { it: 'Essere', nl: 'Zijn', tier: 1, ex: { it: 'Io sono italiano.', nl: 'Ik ben Italiaans.' } },
+      { it: 'Sono', nl: 'Ik ben (vervoeging van "essere")', tier: 1, ex: { it: 'Sono felice.', nl: 'Ik ben blij.' } },
       { it: 'Avere', nl: 'Hebben', tier: 1, ex: { it: 'Ho fame.', nl: 'Ik heb honger.' } },
+      { it: 'Ho', nl: 'Ik heb (vervoeging van "avere")', tier: 1, ex: { it: 'Ho una domanda.', nl: 'Ik heb een vraag.' } },
       { it: 'Andare', nl: 'Gaan', tier: 1, ex: { it: 'Vado a casa.', nl: 'Ik ga naar huis.' } },
+      { it: 'Vado', nl: 'Ik ga (vervoeging van "andare")', tier: 1, ex: { it: 'Vado al mare.', nl: 'Ik ga naar zee.' } },
       { it: 'Fare', nl: 'Doen / Maken', tier: 1, ex: { it: 'Cosa fai?', nl: 'Wat doe je?' } },
+      { it: 'Faccio', nl: 'Ik doe / maak (vervoeging van "fare")', tier: 1, ex: { it: 'Faccio colazione.', nl: 'Ik ontbijt.' } },
       { it: 'Potere', nl: 'Kunnen', tier: 1, ex: { it: 'Posso aiutarti?', nl: 'Kan ik je helpen?' } },
+      { it: 'Posso', nl: 'Ik kan (vervoeging van "potere")', tier: 1, ex: { it: 'Posso entrare?', nl: 'Mag ik binnenkomen?' } },
       { it: 'Volere', nl: 'Willen', tier: 1, ex: { it: 'Voglio un caffè.', nl: 'Ik wil een koffie.' } },
+      { it: 'Voglio', nl: 'Ik wil (vervoeging van "volere")', tier: 1, ex: { it: 'Voglio andare a casa.', nl: 'Ik wil naar huis gaan.' } },
       { it: 'Dovere', nl: 'Moeten', tier: 1, ex: { it: 'Devo andare.', nl: 'Ik moet gaan.' } },
+      { it: 'Devo', nl: 'Ik moet (vervoeging van "dovere")', tier: 1, ex: { it: 'Devo studiare.', nl: 'Ik moet studeren.' } },
       { it: 'Sapere', nl: 'Weten / Kunnen (vaardigheid)', ex: { it: 'Non lo so.', nl: 'Ik weet het niet.' } },
       { it: 'Dire', nl: 'Zeggen', ex: { it: 'Cosa dici?', nl: 'Wat zeg je?' } },
       { it: 'Parlare', nl: 'Praten', ex: { it: 'Parli italiano?', nl: 'Spreek je Italiaans?' } },
@@ -337,6 +347,7 @@ const DECKS = [
       { it: 'Prendere', nl: 'Nemen / Pakken', ex: { it: 'Prendo il treno.', nl: 'Ik neem de trein.' } },
       { it: 'Capire', nl: 'Begrijpen', ex: { it: 'Non capisco.', nl: 'Ik begrijp het niet.' } },
       { it: 'Piacere', nl: 'Bevallen / Leuk vinden ("mi piace" = ik vind het leuk)', tier: 1, ex: { it: "Mi piace l'Italia.", nl: 'Ik vind Italië leuk.' } },
+      { it: 'Mi piace', nl: 'Ik vind het leuk (vervoeging van "piacere")', tier: 1, ex: { it: 'Mi piace la pizza.', nl: 'Ik vind pizza lekker.' } },
       { it: 'Stare', nl: 'Zijn / Blijven (toestand)', ex: { it: 'Come stai?', nl: 'Hoe gaat het met je?' } },
       { it: 'Guardare', nl: 'Kijken', ex: { it: 'Guardo la TV.', nl: 'Ik kijk tv.' } }
     ]
@@ -344,7 +355,7 @@ const DECKS = [
   {
     id: 'lichaam',
     name: 'Lichaam',
-    emoji: '🧍',
+    emoji: '🥱',
     color: '#F472B6',
     cards: [
       { it: 'La testa', nl: 'Het hoofd' },
@@ -421,7 +432,8 @@ const DECKS = [
     color: '#22D3EE',
     cards: [
       { it: 'Chi', nl: 'Wie', tier: 1 },
-      { it: 'Cosa / Che cosa', nl: 'Wat', tier: 1 },
+      { it: 'Cosa', nl: 'Wat', tier: 1 },
+      { it: 'Che cosa', nl: 'Wat', tier: 1 },
       { it: 'Dove', nl: 'Waar', tier: 1 },
       { it: 'Quando', nl: 'Wanneer', tier: 1 },
       { it: 'Perché', nl: 'Waarom / Omdat', tier: 1, ex: { it: 'Perché sei triste?', nl: 'Waarom ben je verdrietig?' } },
@@ -430,7 +442,8 @@ const DECKS = [
       { it: 'Quale', nl: 'Welke', tier: 1 },
       { it: 'Io', nl: 'Ik', tier: 1 },
       { it: 'Tu', nl: 'Jij', tier: 1 },
-      { it: 'Lui / Lei', nl: 'Hij / Zij', tier: 1 },
+      { it: 'Lui', nl: 'Hij', tier: 1 },
+      { it: 'Lei', nl: 'Zij', tier: 1 },
       { it: 'Noi', nl: 'Wij', tier: 1 },
       { it: 'Voi', nl: 'Jullie', tier: 1 },
       { it: 'Loro', nl: 'Zij (meervoud)', tier: 1 }
