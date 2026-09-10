@@ -2,7 +2,7 @@
 //
 // Dit is GEEN officiële IPA-transcriptie — Italiaanse spelling is voor
 // Nederlandstalige lezers grotendeels regelmatig (in tegenstelling tot
-// bijvoorbeeld Engels of Frans), dus in plaats van 292 handmatige
+// bijvoorbeeld Engels of Frans), dus in plaats van 305 handmatige
 // transcripties (foutgevoelig, niet te verifiëren zonder audio) passen we
 // een klein setje bekende Italiaanse uitspraakregels programmatisch toe.
 // Dat werkt automatisch ook voor elk woord dat later aan data.js wordt
@@ -26,6 +26,13 @@ const IT_E = new Set(['e', 'è', 'é']);
 const IT_I = new Set(['i', 'ì', 'í', 'î']);
 const IT_VOWEL = new Set(['a', 'à', 'e', 'è', 'é', 'i', 'ì', 'í', 'î', 'o', 'ò', 'ó', 'u', 'ù', 'ú']);
 
+// Leestekens dragen geen eigen klank en horen niet thuis in een fonetische
+// hint — vooral zichtbaar bij sjabloonkaarten als "Mi chiamo..." of
+// "Dov'è...?", waar de "..."/"?" anders letterlijk in de hint verschenen
+// (bv. "[dov'è...?]"), wat naast alle andere, schone hints als een rare
+// uitzondering opviel.
+const IT_STRIP = new Set(['.', ',', '!', '?', ';', ':']);
+
 function italianPhoneticHint(text) {
   const s = String(text).toLowerCase();
   const at = (i, k) => s[i + k];
@@ -33,6 +40,7 @@ function italianPhoneticHint(text) {
   let i = 0;
 
   while (i < s.length) {
+    if (IT_STRIP.has(s[i])) { i += 1; continue; }
     const c0 = s[i], c1 = at(i, 1), c2 = at(i, 2), c3 = at(i, 3);
 
     // --- 4 tekens: "glia/glie/glio/gliu" en "scia/scio/sciu" (stomme i) ---
@@ -56,6 +64,16 @@ function italianPhoneticHint(text) {
     // bepaalt nog steeds of de c/g zacht is, ook al zit de apostrof ertussen.
     if (c0 === 'c' && c1 === "'" && c2 && (IT_E.has(c2) || IT_I.has(c2))) { out += "tsj'" + c2; i += 3; continue; }
     if (c0 === 'g' && c1 === "'" && c2 && (IT_E.has(c2) || IT_I.has(c2))) { out += "dzj'" + c2; i += 3; continue; }
+
+    // Verdubbelde "cc"/"gg" vlak vóór een zachte e/i (bv. "faccio", "oggi"):
+    // zonder deze regel valt de eerste c/g terug op de harde 1-teken-regel
+    // hieronder ("k"/"g"), terwijl de tweede c/g via de bestaande regels wél
+    // correct zacht wordt — dat gaf bv. "faktsjo" i.p.v. het geminate
+    // "fattsjo"/"oddzji". We geven de eerste letter hier alvast het
+    // bijpassende medeklinker-begin en laten de tweede gewoon door de
+    // bestaande zachte regel lopen.
+    if (c0 === 'c' && c1 === 'c' && c2 && (IT_E.has(c2) || IT_I.has(c2))) { out += 't'; i += 1; continue; }
+    if (c0 === 'g' && c1 === 'g' && c2 && (IT_E.has(c2) || IT_I.has(c2))) { out += 'd'; i += 1; continue; }
 
     // --- 2 tekens ---
     if (c0 === 'g' && c1 === 'n') { out += 'nj'; i += 2; continue; }
