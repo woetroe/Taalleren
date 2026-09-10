@@ -19,6 +19,17 @@ en ga naar `http://localhost:8000`.
 De app werkt ook direct als GitHub Pages-site: zet Pages aan voor deze branch/map
 en er is verder niets te configureren.
 
+### Deployen naar Vercel
+
+`vercel.json` schakelt de install- en buildstap van Vercel expliciet uit en wijst
+de repo-root aan als statische output. Dat is nodig omdat er wél een
+`package.json` in de repo staat (voor de Playwright-tests in `test.js`) — zonder
+deze override probeert Vercel standaard `npm install` te draaien, wat de
+Playwright-browserdownload kan triggeren en de build kan laten mislukken
+(zichtbaar als een `404: NOT_FOUND` op de live URL, omdat er dan nooit een
+geslaagde deployment ontstaat). Met `vercel.json` erbij is er niets te
+installeren of te bouwen: Vercel serveert `index.html` gewoon direct.
+
 ## De leermethode
 
 De studielogica is gebaseerd op drie principes uit onderzoek naar taal-/
@@ -78,6 +89,7 @@ Deze uitleg staat ook, kort, in de app zelf onder "🧠 Waarom werkt dit zo?".
 - `script.js` — app-logica (Leitner-SRS, dagelijkse sessie, typ-modus, localStorage, confetti)
 - `data.js` — de woordenlijsten per categorie (incl. tier- en voorbeeldzin-velden)
 - `test.js` — Playwright end-to-end tests (zie hieronder)
+- `vercel.json` — Vercel-config (schakelt install/build uit, zie "Deployen naar Vercel")
 
 Alles is losstaand en zonder framework, dus makkelijk uit te breiden: voeg een
 nieuwe categorie toe in `data.js` en hij verschijnt automatisch in het
